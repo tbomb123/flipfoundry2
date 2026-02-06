@@ -1,0 +1,7 @@
+{
+  "name": "flipfoundry-frontend",
+  "private": true,
+  "scripts": {
+    "start": "cd /app && node_modules/.bin/next start --port 3000"
+  }
+}

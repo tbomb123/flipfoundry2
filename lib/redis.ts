@@ -1,0 +1,27 @@
+/**
+ * Redis Client for FlipFoundry
+ * Upstash Redis with graceful fallback for local dev without Redis.
+ * Server-side only — never import in client code.
+ */
+
+import { Redis } from '@upstash/redis';
+
+let redis: Redis | null = null;
+
+export function getRedis(): Redis | null {
+  if (redis) return redis;
+
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    return null;
+  }
+
+  redis = new Redis({ url, token });
+  return redis;
+}
+
+export function isRedisConfigured(): boolean {
+  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+}
