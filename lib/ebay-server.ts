@@ -29,6 +29,10 @@ export const FEATURE_FLAGS = {
   // Temporarily disabled to prioritize marketplace trust and request stability
   // Set to true to re-enable sold comparables (findCompletedItems)
   ENABLE_COMPARABLES: false,
+  
+  // Grade estimation for raw sports cards
+  // Set to true to show "Estimate Grade" button on raw card listings
+  ENABLE_GRADE_ESTIMATION: false,
 };
 
 // ============================================================================
