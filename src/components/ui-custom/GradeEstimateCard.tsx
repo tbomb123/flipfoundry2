@@ -241,6 +241,42 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
         <SubgradeBar label="Surface" value={estimate.subgrades.surface} />
       </div>
 
+      {/* Grade Boost - Score Impact */}
+      {gradeBoost && (
+        <div className={cn(
+          "mb-3 p-2 rounded-md flex items-center gap-2",
+          gradeBoost.applied 
+            ? "bg-emerald-500/10 border border-emerald-500/30" 
+            : "bg-slate-700/30 border border-slate-600/30"
+        )}>
+          {gradeBoost.applied ? (
+            <>
+              <Zap size={14} className="text-emerald-400" />
+              <div className="flex-1">
+                <span className="text-xs text-emerald-400 font-medium">
+                  Score Boost: +{gradeBoost.boost}
+                </span>
+                <p className="text-[10px] text-emerald-300/70">
+                  {gradeBoost.reason}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <TrendingUp size={14} className="text-slate-500" />
+              <div className="flex-1">
+                <span className="text-xs text-slate-400">
+                  No Score Boost
+                </span>
+                <p className="text-[10px] text-slate-500">
+                  {gradeBoost.reason || 'Grade below boost threshold'}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Disclaimers */}
       <div className="pt-2 border-t border-slate-700/50 space-y-1">
         <p className="text-[10px] text-slate-500 flex items-start gap-1">
