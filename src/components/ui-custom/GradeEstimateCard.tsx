@@ -141,14 +141,22 @@ function GradeEstimateSkeleton() {
 /**
  * Error state
  */
-function GradeEstimateError({ message }: { message: string }) {
+function GradeEstimateError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="p-3 bg-rose-900/20 rounded-lg border border-rose-800/50">
       <div className="flex items-start gap-2 text-rose-400">
         <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-        <div className="text-xs">
+        <div className="text-xs flex-1">
           <p className="font-medium mb-1">Unable to Estimate Grade</p>
           <p className="text-rose-300/80">{message}</p>
+          {onRetry && (
+            <button 
+              onClick={onRetry}
+              className="mt-2 text-rose-400 hover:text-rose-300 underline"
+            >
+              Try again
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -162,6 +170,7 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
   estimate,
   loading,
   error,
+  onRetry,
   className,
 }) => {
   if (loading) {
@@ -169,7 +178,11 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
   }
 
   if (error) {
-    return <GradeEstimateError message={error} />;
+    return <GradeEstimateError message={error} onRetry={onRetry} />;
+  }
+
+  if (!estimate) {
+    return null;
   }
 
   const confidenceLevel = getConfidenceLevel(estimate.confidence);
