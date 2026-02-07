@@ -328,16 +328,21 @@ export const DealCard: React.FC<DealCardProps> = ({
           </Button>
           
           {/* Grade Estimate Button - Only shown for raw sports cards */}
-          {showGradeButton && (
+          {isRawCard && (
             <Button
               variant="outline"
               size="sm"
               className="bg-amber-600/20 border-amber-500/50 hover:bg-amber-600/30 hover:border-amber-400 text-amber-400"
-              onClick={() => onEstimateGrade?.(valuation)}
+              onClick={handleEstimateGrade}
+              disabled={gradeLoading}
               data-testid="deal-card-estimate-grade-btn"
             >
-              <Star size={14} className="mr-1.5" />
-              Grade
+              {gradeLoading ? (
+                <Loader2 size={14} className="mr-1.5 animate-spin" />
+              ) : (
+                <Star size={14} className="mr-1.5" />
+              )}
+              {showGradeEstimate && gradeEstimate ? 'Hide Grade' : 'Grade'}
             </Button>
           )}
           
