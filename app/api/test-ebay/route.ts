@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ebayQueue } from '@/lib/ebayQueue';
 
 export const runtime = 'nodejs';
 
@@ -23,25 +24,33 @@ export async function GET() {
     "&paginationInput.entriesPerPage=3";
 
   console.log("TEST EBAY URL:", url);
+  console.log("[TEST-EBAY] Queuing request through global singleton");
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      'X-EBAY-SOA-SECURITY-APPNAME': appId,
-      'X-EBAY-SOA-OPERATION-NAME': 'findItemsByKeywords',
-      'X-EBAY-SOA-SERVICE-NAME': 'FindingService',
-      'X-EBAY-SOA-RESPONSE-DATA-FORMAT': 'JSON',
-      'X-EBAY-SOA-GLOBAL-ID': 'EBAY-US',
-    },
+  // Route through global queue singleton
+  const result = await ebayQueue.add(async () => {
+    console.log("[TEST-EBAY] Executing queued request");
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        'X-EBAY-SOA-SECURITY-APPNAME': appId,
+        'X-EBAY-SOA-OPERATION-NAME': 'findItemsByKeywords',
+        'X-EBAY-SOA-SERVICE-NAME': 'FindingService',
+        'X-EBAY-SOA-RESPONSE-DATA-FORMAT': 'JSON',
+        'X-EBAY-SOA-GLOBAL-ID': 'EBAY-US',
+      },
+    });
+
+    const text = await response.text();
+
+    console.log("EBAY STATUS:", response.status);
+    console.log("EBAY RAW BODY:", text);
+
+    return { text, status: response.status };
   });
 
-  const text = await response.text();
-
-  console.log("EBAY STATUS:", response.status);
-  console.log("EBAY RAW BODY:", text);
-
-  return new NextResponse(text, {
-    status: response.status,
+  return new NextResponse(result?.text || '{"error":"Queue returned null"}', {
+    status: result?.status || 500,
     headers: { "Content-Type": "application/json" },
   });
 }
