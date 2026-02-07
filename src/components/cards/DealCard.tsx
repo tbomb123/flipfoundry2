@@ -109,12 +109,17 @@ export const DealCard: React.FC<DealCardProps> = ({
     
     setShowGradeEstimate(true);
     
-    // Get additional images if available
+    // Get primary image and additional images
+    const primaryImage = listing.imageUrls?.[0] || '';
     const additionalUrls = listing.imageUrls?.slice(1, 3); // Max 2 additional
+    
+    if (!primaryImage) {
+      return;
+    }
     
     await estimateGrade(
       listing.id,
-      listing.imageUrl,
+      primaryImage,
       additionalUrls
     );
   };
