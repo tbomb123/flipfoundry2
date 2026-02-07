@@ -166,11 +166,7 @@ async function makeFindingApiRequest<T>(
     throw new EbayApiError('eBay API not configured', 'NOT_CONFIGURED');
   }
   
-  const baseUrl = config.sandbox
-    ? EBAY_API_ENDPOINTS.finding.sandbox
-    : EBAY_API_ENDPOINTS.finding.production;
-
-  console.log("[EBAY BASE URL]", baseUrl);
+  const baseUrl = EBAY_API_ENDPOINTS.finding.production;
 
   const queryParams = new URLSearchParams();
 
@@ -189,16 +185,32 @@ async function makeFindingApiRequest<T>(
 
   const url = `${baseUrl}?${queryParams.toString()}`;
 
+  console.log("=== EBAY CONFIG ===");
+  console.log("APP ID:", config.appId ? "Loaded" : "MISSING");
+  console.log("REQUEST URL:", url);
+
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      Accept: 'application/json',
+      'X-EBAY-SOA-SECURITY-APPNAME': config.appId,
+      'X-EBAY-SOA-OPERATION-NAME': operation,
+      'X-EBAY-SOA-SERVICE-NAME': 'FindingService',
+      'X-EBAY-SOA-RESPONSE-DATA-FORMAT': 'JSON',
+      'X-EBAY-SOA-GLOBAL-ID': 'EBAY-US',
       'Content-Type': 'application/json',
     },
   });
 
+  console.log("EBAY STATUS:", response.status);
+
   if (!response.ok) {
-    throw new EbayApiError(`HTTP Error: ${response.status}`, 'HTTP_ERROR', response.status);
+    const body = await response.text();
+    console.error("EBAY FAILURE BODY:", body);
+    throw new EbayApiError(
+      `HTTP ${response.status} :: ${body}`,
+      'HTTP_ERROR',
+      response.status
+    );
   }
 
   const data = (await response.json()) as T;
