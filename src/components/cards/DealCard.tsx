@@ -299,10 +299,15 @@ export const DealCard: React.FC<DealCardProps> = ({
           {/* Deal Score Progress */}
           <div className="pt-1">
             <ScoreProgress 
-              score={dealScore.score} 
-              color={dealScore.color}
+              score={finalScore} 
+              color={gradeBoostResult?.applied ? 'emerald' : dealScore.color}
               size="sm"
             />
+            {gradeBoostResult?.applied && (
+              <p className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1">
+                <span>+{gradeBoostResult.boost} Grade Boost</span>
+              </p>
+            )}
           </div>
         </div>
         
