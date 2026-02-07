@@ -204,10 +204,11 @@ async function makeFindingApiRequest<T>(
   console.log("EBAY STATUS:", response.status);
 
   if (!response.ok) {
-    const body = await response.text();
-    console.error("EBAY FAILURE BODY:", body);
+    const text = await response.text();
+    console.error("EBAY ERROR BODY:", text);
+
     throw new EbayApiError(
-      `HTTP ${response.status} :: ${body}`,
+      `HTTP Error ${response.status} - ${text}`,
       'HTTP_ERROR',
       response.status
     );
