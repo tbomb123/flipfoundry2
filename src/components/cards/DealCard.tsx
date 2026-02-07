@@ -75,19 +75,49 @@ export const DealCard: React.FC<DealCardProps> = ({
   valuation,
   onViewDetails,
   onAddToWatchlist,
-  onEstimateGrade,
   className,
 }) => {
   const { listing, dealScore, sellerRisk, marketValue } = valuation;
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [showGradeEstimate, setShowGradeEstimate] = useState(false);
+  
+  // Grade estimation hook
+  const { 
+    estimate: gradeEstimate, 
+    loading: gradeLoading, 
+    error: gradeError, 
+    estimateGrade,
+    reset: resetGradeEstimate 
+  } = useGradeEstimate();
   
   const profit = dealScore.potentialProfit;
   const isProfitable = profit > 0;
   
   // Check if this is a raw sports card eligible for grade estimation
-  const showGradeButton = FEATURE_FLAGS.ENABLE_GRADE_ESTIMATION && 
+  const isRawCard = GRADE_ESTIMATION_ENABLED && 
     shouldShowGradeEstimate(listing.title, listing.condition, listing.category?.id);
+  
+  // Handle grade estimation button click
+  const handleEstimateGrade = async () => {
+    if (showGradeEstimate && gradeEstimate) {
+      // Toggle off if already showing
+      setShowGradeEstimate(false);
+      resetGradeEstimate();
+      return;
+    }
+    
+    setShowGradeEstimate(true);
+    
+    // Get additional images if available
+    const additionalUrls = listing.imageUrls?.slice(1, 3); // Max 2 additional
+    
+    await estimateGrade(
+      listing.id,
+      listing.imageUrl,
+      additionalUrls
+    );
+  };
   
   return (
     <div
