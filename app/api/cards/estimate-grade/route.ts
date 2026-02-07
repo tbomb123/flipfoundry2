@@ -4,6 +4,10 @@
  * AI-powered grade estimation for raw sports cards.
  * Uses Redis cache (30 day TTL) and queued AI requests.
  * 
+ * Providers:
+ *   - Ximilar (if XIMILAR_API_TOKEN configured)
+ *   - Mock (fallback for development)
+ * 
  * Input:
  *   - itemId: string (required)
  *   - imageUrl: string (required)
@@ -23,9 +27,14 @@ import { FEATURE_FLAGS } from '@/lib/ebay-server';
 import { 
   getCachedGradeEstimate, 
   setCachedGradeEstimate,
-  isGradeCacheAvailable 
+  isGradeCacheAvailable,
+  type GradeEstimate
 } from '@/lib/grade-cache';
-import { estimateGrade, getGradeProviderStatus } from '@/lib/grade-provider';
+import { 
+  estimateGrade, 
+  getGradingStatus,
+  isGradingAvailable 
+} from '@/lib/grading';
 
 export const runtime = 'nodejs';
 
@@ -116,17 +125,57 @@ export async function POST(request: NextRequest) {
 
     console.log(`[GRADE API] Cache MISS for item ${itemId}. Queuing AI estimate...`);
 
-    // Enqueue AI grade estimation request
-    const estimate = await estimateGrade({
+    // Enqueue AI grade estimation request via pluggable provider
+    const response = await estimateGrade({
       itemId,
       imageUrl,
       additionalImageUrls,
     });
 
+    // Handle provider errors gracefully
+    if (!response.success || !response.result) {
+      const error = response.error || { 
+        code: 'UNKNOWN_ERROR', 
+        message: 'Unable to estimate grade from available photos.',
+        retryable: false 
+      };
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+          meta: {
+            timestamp: new Date().toISOString(),
+            executionTimeMs: Date.now() - startTime,
+            retryable: error.retryable,
+            provider: getGradingStatus(),
+          },
+        }),
+        { 
+          status: error.retryable ? 503 : 422, 
+          headers: { 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Build cache entry
+    const estimate: GradeEstimate = {
+      itemId,
+      overallGrade: response.result.overallGrade,
+      subgrades: response.result.subgrades,
+      confidence: response.result.confidence,
+      provider: response.result.provider,
+      disclaimer: response.result.disclaimer,
+      estimatedAt: response.result.estimatedAt,
+    };
+
     // Store in Redis cache (30 day TTL)
     await setCachedGradeEstimate(estimate);
 
-    const providerStatus = getGradeProviderStatus();
+    const gradingStatus = getGradingStatus();
 
     return new Response(
       JSON.stringify({
@@ -137,7 +186,10 @@ export async function POST(request: NextRequest) {
           executionTimeMs: Date.now() - startTime,
           cached: false,
           cacheAvailable: isGradeCacheAvailable(),
-          provider: providerStatus,
+          provider: {
+            name: gradingStatus.activeProvider,
+            configured: gradingStatus.providerConfigured,
+          },
         },
       }),
       { 
@@ -175,16 +227,17 @@ export async function POST(request: NextRequest) {
  * Returns feature status and provider info
  */
 export async function GET() {
-  const providerStatus = getGradeProviderStatus();
+  const gradingStatus = getGradingStatus();
 
   return new Response(
     JSON.stringify({
       success: true,
       data: {
         featureEnabled: FEATURE_FLAGS.ENABLE_GRADE_ESTIMATION,
+        gradingAvailable: isGradingAvailable(),
         cacheAvailable: isGradeCacheAvailable(),
         cacheTTL: '30 days',
-        provider: providerStatus,
+        provider: gradingStatus,
       },
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
