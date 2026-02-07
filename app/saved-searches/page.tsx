@@ -249,24 +249,31 @@ export default function SavedSearchesPage() {
 
                 <CardContent className="pt-0 space-y-4">
                   {/* Filters */}
-                  {Object.keys(search.filters || {}).length > 0 && (
+                  {search.filters && Object.keys(search.filters).length > 0 && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <Filter size={12} className="text-slate-500" />
-                      {(search.filters as Record<string, unknown>).priceMin && (
-                        <Badge variant="outline" className="text-xs bg-slate-800 border-slate-700">
-                          Min: ${String((search.filters as Record<string, unknown>).priceMin)}
-                        </Badge>
-                      )}
-                      {(search.filters as Record<string, unknown>).priceMax && (
-                        <Badge variant="outline" className="text-xs bg-slate-800 border-slate-700">
-                          Max: ${String((search.filters as Record<string, unknown>).priceMax)}
-                        </Badge>
-                      )}
-                      {(search.filters as Record<string, unknown>).category && (
-                        <Badge variant="outline" className="text-xs bg-slate-800 border-slate-700">
-                          {String((search.filters as Record<string, unknown>).category)}
-                        </Badge>
-                      )}
+                      {(() => {
+                        const filters = search.filters as { priceMin?: number; priceMax?: number; category?: string };
+                        return (
+                          <>
+                            {filters.priceMin != null && (
+                              <Badge variant="outline" className="text-xs bg-slate-800 border-slate-700">
+                                Min: ${filters.priceMin}
+                              </Badge>
+                            )}
+                            {filters.priceMax != null && (
+                              <Badge variant="outline" className="text-xs bg-slate-800 border-slate-700">
+                                Max: ${filters.priceMax}
+                              </Badge>
+                            )}
+                            {filters.category && (
+                              <Badge variant="outline" className="text-xs bg-slate-800 border-slate-700">
+                                {filters.category}
+                              </Badge>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
