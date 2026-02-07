@@ -12,19 +12,23 @@ import {
   TrendingUp,
   DollarSign,
   BarChart3,
-  AlertCircle
+  AlertCircle,
+  Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScoreBadge, ScoreProgress } from '@/components/ui-custom/ScoreBadge';
 import { RiskBadge } from '@/components/ui-custom/RiskBadge';
+import { shouldShowGradeEstimate } from '@/lib/raw-card-detection';
+import { FEATURE_FLAGS } from '@/lib/ebay-server';
 import type { ValuationResult } from '@/types';
 
 interface DealCardProps {
   valuation: ValuationResult;
   onViewDetails?: (valuation: ValuationResult) => void;
   onAddToWatchlist?: (listingId: string) => void;
+  onEstimateGrade?: (valuation: ValuationResult) => void;
   className?: string;
   style?: React.CSSProperties;
 }
