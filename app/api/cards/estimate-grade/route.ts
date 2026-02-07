@@ -102,14 +102,25 @@ export async function POST(request: NextRequest) {
     // Check Redis cache FIRST
     const cached = await getCachedGradeEstimate(itemId);
     if (cached) {
-      console.log(`[GRADE API] Cache HIT for item ${itemId}`);
+      const durationMs = Date.now() - startTime;
+      
+      // Log cache hit
+      await logGradeRequest({
+        itemId,
+        provider: cached.provider || 'cached',
+        confidence: cached.confidence,
+        durationMs,
+        cacheHit: true,
+        success: true,
+      });
+      
       return new Response(
         JSON.stringify({
           success: true,
           data: cached,
           meta: {
             timestamp: new Date().toISOString(),
-            executionTimeMs: Date.now() - startTime,
+            executionTimeMs: durationMs,
             cached: true,
             cacheAvailable: isGradeCacheAvailable(),
           },
@@ -135,11 +146,23 @@ export async function POST(request: NextRequest) {
 
     // Handle provider errors gracefully
     if (!response.success || !response.result) {
+      const durationMs = Date.now() - startTime;
       const error = response.error || { 
         code: 'UNKNOWN_ERROR', 
         message: 'Unable to estimate grade from available photos.',
         retryable: false 
       };
+      
+      // Log provider error
+      await logGradeRequest({
+        itemId,
+        provider: getGradingStatus().activeProvider,
+        confidence: null,
+        durationMs,
+        cacheHit: false,
+        success: false,
+        error: error.message,
+      });
       
       return new Response(
         JSON.stringify({
@@ -150,7 +173,7 @@ export async function POST(request: NextRequest) {
           },
           meta: {
             timestamp: new Date().toISOString(),
-            executionTimeMs: Date.now() - startTime,
+            executionTimeMs: durationMs,
             retryable: error.retryable,
             provider: getGradingStatus(),
           },
@@ -177,6 +200,17 @@ export async function POST(request: NextRequest) {
     await setCachedGradeEstimate(estimate);
 
     const gradingStatus = getGradingStatus();
+    const durationMs = Date.now() - startTime;
+    
+    // Log successful grade estimation
+    await logGradeRequest({
+      itemId,
+      provider: estimate.provider,
+      confidence: estimate.confidence,
+      durationMs,
+      cacheHit: false,
+      success: true,
+    });
 
     return new Response(
       JSON.stringify({
@@ -184,7 +218,7 @@ export async function POST(request: NextRequest) {
         data: estimate,
         meta: {
           timestamp: new Date().toISOString(),
-          executionTimeMs: Date.now() - startTime,
+          executionTimeMs: durationMs,
           cached: false,
           cacheAvailable: isGradeCacheAvailable(),
           provider: {
@@ -204,7 +238,26 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[GRADE API] Error:', error);
-    const duration = Date.now() - startTime;
+    const durationMs = Date.now() - startTime;
+    
+    // Log unexpected error - extract itemId from request body if possible
+    let itemId = 'unknown';
+    try {
+      const body = await request.clone().json();
+      itemId = body?.itemId || 'unknown';
+    } catch {
+      // Ignore parse errors
+    }
+    
+    await logGradeRequest({
+      itemId,
+      provider: 'unknown',
+      confidence: null,
+      durationMs,
+      cacheHit: false,
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    });
 
     return new Response(
       JSON.stringify({
@@ -215,7 +268,7 @@ export async function POST(request: NextRequest) {
         },
         meta: {
           timestamp: new Date().toISOString(),
-          executionTimeMs: duration,
+          executionTimeMs: durationMs,
         },
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
