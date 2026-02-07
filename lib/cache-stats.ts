@@ -5,7 +5,7 @@
  */
 
 import { isRedisConfigured } from './redis';
-import { getCacheStats as getDetailedCacheStats } from './cache';
+import { getCacheStats as getInternalCacheStats } from './cache';
 
 let searchHits = 0;
 let searchMisses = 0;
@@ -33,12 +33,12 @@ export function getCacheStats() {
   const totalComparables = comparablesHits + comparablesMisses;
   const totalHits = searchHits + comparablesHits;
   const totalRequests = totalSearch + totalComparables;
-  const detailedStats = getDetailedCacheStats();
+  const internalStats = getInternalCacheStats();
 
   return {
     redis: {
       configured: isRedisConfigured(),
-      stats: detailedStats,
+      internal: internalStats,
     },
     search: {
       hits: searchHits,
