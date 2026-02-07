@@ -165,16 +165,22 @@ class EbayApiError extends Error {
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 // ============================================================================
-// RATE PROTECTION - Circuit breaker and retry logic
+// RATE PROTECTION - Conservative retry with circuit breaker
 // ============================================================================
 
-const RETRY_DELAYS = [2000, 5000, 10000]; // Exponential backoff
-const MAX_RETRIES = 2; // Reduced retries - circuit breaker handles persistent issues
+// Conservative backoff schedule: 3s → 8s → 20s
+const RETRY_DELAYS = [3000, 8000, 20000];
+const MAX_RETRIES = 3;
 
-async function fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, operation: string): Promise<Response> {
   let lastError: Error | null = null;
+  let lastStatusCode: number | null = null;
   
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    const isLastAttempt = attempt > MAX_RETRIES;
+    
+    console.log(`[EBAY RETRY] Attempt ${attempt}/${MAX_RETRIES + 1} for ${operation}`);
+    
     try {
       const response = await fetch(url, options);
       
@@ -182,10 +188,12 @@ async function fetchWithRetry(url: string, options: RequestInit): Promise<Respon
       if (!response.ok) {
         const clonedResponse = response.clone();
         const text = await clonedResponse.text();
+        lastStatusCode = response.status;
         
         // Check for eBay rate limit error (errorId 10001) - TRIPS CIRCUIT BREAKER
         if (checkForRateLimitError(text)) {
           // Circuit breaker is now tripped - do NOT retry, throw immediately
+          console.log(`[EBAY RETRY] Rate limit detected. Circuit breaker tripped. Aborting retries.`);
           throw new EbayApiError(
             `eBay rate limit triggered (errorId 10001). Circuit breaker activated.`,
             'CIRCUIT_BREAKER_TRIPPED',
@@ -193,33 +201,54 @@ async function fetchWithRetry(url: string, options: RequestInit): Promise<Respon
           );
         }
         
-        // For 500 errors or other failures, use exponential backoff
-        if (response.status >= 500 && attempt < MAX_RETRIES) {
-          const backoffTime = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-          console.log(`[EBAY QUEUE] HTTP ${response.status} error. Waiting ${backoffTime / 1000} seconds before retry ${attempt + 1}/${MAX_RETRIES}...`);
+        // For 500+ errors, retry with backoff (unless last attempt)
+        if (response.status >= 500 && !isLastAttempt) {
+          const backoffTime = RETRY_DELAYS[attempt - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+          console.log(`[EBAY RETRY] HTTP ${response.status} error. Backing off ${backoffTime / 1000}s before retry...`);
           await delay(backoffTime);
           continue;
         }
+        
+        // For 4xx errors (except rate limit), don't retry - it's a client error
+        if (response.status >= 400 && response.status < 500) {
+          console.log(`[EBAY RETRY] HTTP ${response.status} client error. Not retrying.`);
+          return response;
+        }
       }
       
+      // Success
+      if (attempt > 1) {
+        console.log(`[EBAY RETRY] Success on attempt ${attempt}`);
+      }
       return response;
+      
     } catch (error) {
-      // Re-throw circuit breaker errors immediately
+      // Re-throw circuit breaker errors immediately - no retry
       if (error instanceof EbayApiError && error.code === 'CIRCUIT_BREAKER_TRIPPED') {
         throw error;
       }
       
       lastError = error instanceof Error ? error : new Error(String(error));
       
-      if (attempt < MAX_RETRIES) {
-        const backoffTime = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-        console.log(`[EBAY QUEUE] Network error. Waiting ${backoffTime / 1000} seconds before retry ${attempt + 1}/${MAX_RETRIES}...`);
+      if (!isLastAttempt) {
+        const backoffTime = RETRY_DELAYS[attempt - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+        console.log(`[EBAY RETRY] Network error: ${lastError.message}. Backing off ${backoffTime / 1000}s...`);
         await delay(backoffTime);
+      } else {
+        console.log(`[EBAY RETRY] All ${MAX_RETRIES} retries exhausted. Surfacing error gracefully.`);
       }
     }
   }
   
-  throw lastError || new Error('Max retries exceeded');
+  // All retries exhausted - surface error gracefully
+  const errorMessage = lastError?.message || 'Request failed after all retries';
+  console.error(`[EBAY RETRY] FAILED: ${errorMessage} (last status: ${lastStatusCode})`);
+  
+  throw new EbayApiError(
+    `eBay API request failed after ${MAX_RETRIES} retries: ${errorMessage}`,
+    'MAX_RETRIES_EXCEEDED',
+    lastStatusCode || 500
+  );
 }
 
 // Core API request function (called within queue)
