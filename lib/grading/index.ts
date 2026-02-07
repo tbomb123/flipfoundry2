@@ -83,11 +83,34 @@ export const gradingQueue = getGradingQueue();
 // MAIN GRADING FUNCTION
 // ============================================================================
 
+import { validatePhotoQuality, applyConfidenceModifier } from '../photo-quality';
+
 /**
  * Estimate card grade using configured provider
  * Routes through queue for rate limiting
+ * Includes photo quality guardrails
  */
 export async function estimateGrade(input: GradeInput): Promise<GradeProviderResponse> {
+  // Photo quality guardrails - check BEFORE queuing
+  const photoQuality = validatePhotoQuality({
+    imageUrl: input.imageUrl,
+    additionalImageUrls: input.additionalImageUrls,
+  });
+  
+  if (!photoQuality.valid) {
+    console.log(`[GRADING] Photo quality check failed: ${photoQuality.error?.code}`);
+    return {
+      success: false,
+      error: {
+        code: photoQuality.error?.code || 'PHOTO_QUALITY_ERROR',
+        message: photoQuality.error?.message || 'Insufficient image quality for grading.',
+        retryable: false,
+      },
+    };
+  }
+  
+  console.log(`[GRADING] Photo quality OK. Images: ${photoQuality.imageCount}, Modifier: ${photoQuality.confidenceModifier}`);
+  
   const provider = getActiveProvider();
   
   console.log(`[GRADING] Queuing grade estimate for item ${input.itemId} via ${provider.name}`);
@@ -106,6 +129,19 @@ export async function estimateGrade(input: GradeInput): Promise<GradeProviderRes
         retryable: true,
       },
     };
+  }
+  
+  // Apply confidence modifier based on photo quality
+  if (response.success && response.result) {
+    const originalConfidence = response.result.confidence;
+    response.result.confidence = applyConfidenceModifier(originalConfidence, photoQuality);
+    
+    // Add label if photo quality reduced confidence
+    if (photoQuality.label) {
+      response.result.disclaimer = `${photoQuality.label}. ${response.result.disclaimer}`;
+    }
+    
+    console.log(`[GRADING] Confidence adjusted: ${originalConfidence} -> ${response.result.confidence} (${photoQuality.label || 'no modifier'})`);
   }
   
   return response;
