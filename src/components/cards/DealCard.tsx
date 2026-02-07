@@ -286,16 +286,32 @@ export const DealCard: React.FC<DealCardProps> = ({
             size="sm"
             className="flex-1 bg-slate-800/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500 text-slate-300"
             onClick={() => onViewDetails?.(valuation)}
+            data-testid="deal-card-details-btn"
           >
             <AlertCircle size={14} className="mr-1.5" />
             Details
           </Button>
+          
+          {/* Grade Estimate Button - Only shown for raw sports cards */}
+          {showGradeButton && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-amber-600/20 border-amber-500/50 hover:bg-amber-600/30 hover:border-amber-400 text-amber-400"
+              onClick={() => onEstimateGrade?.(valuation)}
+              data-testid="deal-card-estimate-grade-btn"
+            >
+              <Star size={14} className="mr-1.5" />
+              Grade
+            </Button>
+          )}
           
           <Button
             variant="outline"
             size="icon"
             className="border-slate-600 hover:bg-slate-700 hover:border-slate-500 text-slate-400 hover:text-rose-400"
             onClick={() => onAddToWatchlist?.(listing.id)}
+            data-testid="deal-card-watchlist-btn"
           >
             <Heart size={14} />
           </Button>
@@ -305,6 +321,7 @@ export const DealCard: React.FC<DealCardProps> = ({
             size="sm"
             className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white"
             onClick={() => window.open(listing.listingUrl, '_blank', 'noopener,noreferrer')}
+            data-testid="deal-card-ebay-btn"
           >
             <ExternalLink size={14} className="mr-1.5" />
             View on eBay
