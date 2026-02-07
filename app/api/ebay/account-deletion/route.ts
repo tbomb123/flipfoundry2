@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
     .update(challengeCode + verificationToken + endpoint, "utf8")
     .digest("base64");
 
-  return Response.json(
+  return NextResponse.json(
     { challengeResponse: hash },
     { headers: { "Cache-Control": "no-store" } }
   );
