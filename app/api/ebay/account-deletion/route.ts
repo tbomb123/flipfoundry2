@@ -14,6 +14,8 @@ export async function GET(req: Request) {
   const verificationToken = process.env.EBAY_VERIFICATION_TOKEN!;
   const endpoint = `https://${req.headers.get("host")}/api/ebay/account-deletion`;
 
+  console.log("[eBay] Endpoint used for hash:", endpoint);
+
   const hash = crypto
     .createHash("sha256")
     .update(challengeCode + verificationToken + endpoint, "utf8")
