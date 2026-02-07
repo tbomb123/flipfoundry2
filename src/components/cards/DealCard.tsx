@@ -70,6 +70,7 @@ export const DealCard: React.FC<DealCardProps> = ({
   valuation,
   onViewDetails,
   onAddToWatchlist,
+  onEstimateGrade,
   className,
 }) => {
   const { listing, dealScore, sellerRisk, marketValue } = valuation;
@@ -78,6 +79,10 @@ export const DealCard: React.FC<DealCardProps> = ({
   
   const profit = dealScore.potentialProfit;
   const isProfitable = profit > 0;
+  
+  // Check if this is a raw sports card eligible for grade estimation
+  const showGradeButton = FEATURE_FLAGS.ENABLE_GRADE_ESTIMATION && 
+    shouldShowGradeEstimate(listing.title, listing.condition, listing.category?.id);
   
   return (
     <div
