@@ -165,12 +165,11 @@ class EbayApiError extends Error {
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 // ============================================================================
-// RATE PROTECTION - Exponential backoff and retry logic
+// RATE PROTECTION - Circuit breaker and retry logic
 // ============================================================================
 
 const RETRY_DELAYS = [2000, 5000, 10000]; // Exponential backoff
-const MAX_RETRIES = 3;
-const RATE_LIMIT_WAIT_MS = 15000; // Wait 15s on eBay rate limit
+const MAX_RETRIES = 2; // Reduced retries - circuit breaker handles persistent issues
 
 async function fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
   let lastError: Error | null = null;
@@ -184,14 +183,14 @@ async function fetchWithRetry(url: string, options: RequestInit): Promise<Respon
         const clonedResponse = response.clone();
         const text = await clonedResponse.text();
         
-        // Check for eBay rate limit error (errorId 10001)
-        if (text.includes('errorId') && text.includes('10001')) {
-          console.log(`[EBAY QUEUE] Rate limit detected (errorId 10001). Waiting ${RATE_LIMIT_WAIT_MS / 1000} seconds before retry...`);
-          await delay(RATE_LIMIT_WAIT_MS);
-          
-          if (attempt < MAX_RETRIES) {
-            continue; // Retry after rate limit wait
-          }
+        // Check for eBay rate limit error (errorId 10001) - TRIPS CIRCUIT BREAKER
+        if (checkForRateLimitError(text)) {
+          // Circuit breaker is now tripped - do NOT retry, throw immediately
+          throw new EbayApiError(
+            `eBay rate limit triggered (errorId 10001). Circuit breaker activated.`,
+            'CIRCUIT_BREAKER_TRIPPED',
+            429
+          );
         }
         
         // For 500 errors or other failures, use exponential backoff
@@ -205,6 +204,11 @@ async function fetchWithRetry(url: string, options: RequestInit): Promise<Respon
       
       return response;
     } catch (error) {
+      // Re-throw circuit breaker errors immediately
+      if (error instanceof EbayApiError && error.code === 'CIRCUIT_BREAKER_TRIPPED') {
+        throw error;
+      }
+      
       lastError = error instanceof Error ? error : new Error(String(error));
       
       if (attempt < MAX_RETRIES) {
@@ -223,6 +227,18 @@ async function executeEbayRequest<T>(
   operation: string,
   params: Record<string, string | number>
 ): Promise<T> {
+  // Check circuit breaker FIRST
+  if (isCircuitBreakerOpen()) {
+    const status = getCircuitBreakerStatus();
+    const remainingSec = Math.ceil(status.remainingCooldownMs / 1000);
+    console.log(`[CIRCUIT BREAKER] Request blocked. Cooldown remaining: ${remainingSec}s`);
+    throw new EbayApiError(
+      `eBay API temporarily unavailable. Circuit breaker open. Retry in ${remainingSec} seconds.`,
+      'CIRCUIT_BREAKER_OPEN',
+      503
+    );
+  }
+
   const config = getServerConfig();
   
   if (!config.appId) {
