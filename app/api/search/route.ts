@@ -161,6 +161,26 @@ export async function POST(request: NextRequest) {
     console.error('Search error:', error);
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const errorCode = (error as { code?: string })?.code || 'SEARCH_ERROR';
+
+    // Handle circuit breaker errors
+    if (errorCode === 'CIRCUIT_BREAKER_OPEN' || errorCode === 'CIRCUIT_BREAKER_TRIPPED') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: errorCode,
+            message: errorMessage,
+          },
+          meta: {
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+            executionTimeMs: duration,
+          },
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } }
+      );
+    }
 
     // Check for eBay rate limit error (errorId 10001)
     if (errorMessage.includes('errorId') && errorMessage.includes('10001')) {
