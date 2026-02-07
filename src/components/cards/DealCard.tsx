@@ -367,6 +367,18 @@ export const DealCard: React.FC<DealCardProps> = ({
             View on eBay
           </Button>
         </div>
+        
+        {/* Grade Estimate Display */}
+        {showGradeEstimate && (
+          <div className="mt-4">
+            <GradeEstimateCard
+              estimate={gradeEstimate}
+              loading={gradeLoading}
+              error={gradeError}
+              onRetry={handleEstimateGrade}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
