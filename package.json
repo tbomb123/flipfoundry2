@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
