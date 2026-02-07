@@ -156,6 +156,8 @@ class EbayApiError extends Error {
   }
 }
 
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
 async function makeFindingApiRequest<T>(
   operation: string,
   params: Record<string, string | number>
