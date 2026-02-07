@@ -86,7 +86,68 @@ XIMILAR_API_TOKEN=your_production_token
 Watch for:
 - Error rates in Sentry
 - Cache hit rates at `/api/search/cache/stats`
+- **Grade estimation metrics at `/api/grade/stats`**
 - User feedback
+
+---
+
+## Grade Estimation Observability
+
+The grade estimation feature includes built-in observability via:
+
+### Structured Logging
+Every grade request logs a JSON object:
+```json
+{
+  "itemId": "123456",
+  "provider": "ximilar-v1",
+  "confidence": 0.85,
+  "durationMs": 1234,
+  "cacheHit": false,
+  "success": true,
+  "error": null,
+  "timestamp": "2026-02-07T..."
+}
+```
+
+### Redis Counters (when Redis configured)
+- `grade:stats:cache_hit` - Number of cache hits
+- `grade:stats:cache_miss` - Number of cache misses
+- `grade:stats:provider_error` - Number of provider errors
+- `grade:stats:total_requests` - Total requests processed
+- `grade:stats:total_duration_ms` - Cumulative processing time
+
+### Stats Endpoint
+```bash
+# View grade estimation metrics
+curl -H "x-api-key: YOUR_API_KEY" https://your-domain/api/grade/stats
+
+# Reset counters (for testing)
+curl -X DELETE -H "x-api-key: YOUR_API_KEY" https://your-domain/api/grade/stats
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "featureEnabled": true,
+    "redisStatus": { "configured": true, "reachable": true },
+    "counters": {
+      "cacheHits": 150,
+      "cacheMisses": 45,
+      "providerErrors": 2,
+      "totalRequests": 197,
+      "totalDurationMs": 234567
+    },
+    "computed": {
+      "cacheHitRate": "76.9%",
+      "errorRate": "1.0%",
+      "avgDurationMs": 1191
+    }
+  }
+}
+```
 
 ---
 
