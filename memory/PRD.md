@@ -19,7 +19,7 @@ FlipFoundry: AI-powered eBay arbitrage platform. Next.js 15.5.12, React 18, Type
 ## Current Status (February 2026)
 - **Build**: ✅ Passing
 - **Tests**: 51 tests (Vitest + Playwright)
-- **Preview**: https://flipfoundry.preview.emergentagent.com ✅
+- **Preview**: https://ebayarb.preview.emergentagent.com ✅
 - **GitHub**: `tbomb123/flipfoundry2`
 - **Next Step**: Deploy to Vercel
 
