@@ -1,14 +1,64 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// FlipFoundry Database Schema
+// Prisma ORM with Neon PostgreSQL
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
+// =============================================================================
+// SAVED SEARCHES
+// Core retention infrastructure for the arbitrage scanning system
+// =============================================================================
+
+model SavedSearch {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id")  // API key for now, user UUID later
+  name          String   @db.VarChar(255)
+  query         String   @db.Text
+  filters       Json     @default("{}")   // JSONB: { priceMin, priceMax, category, condition }
+  alertEnabled  Boolean  @default(false) @map("alert_enabled")
+  minimumScore  Int      @default(70) @map("minimum_score")  // Deal score threshold for alerts
+  lastRunAt     DateTime? @map("last_run_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Indexes for performance
+  @@index([userId])
+  @@index([alertEnabled])
+  @@index([userId, alertEnabled])
+  
+  @@map("saved_searches")
+}
+
+// =============================================================================
+// ALERT HISTORY
+// Track sent alerts for deduplication and analytics
+// =============================================================================
+
+model AlertHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  savedSearchId   String   @map("saved_search_id") @db.Uuid
+  itemId          String   @map("item_id")  // eBay item ID
+  dealScore       Int      @map("deal_score")
+  alertType       String   @default("email") @map("alert_type")  // email, sms, push
+  sentAt          DateTime @default(now()) @map("sent_at")
+  
+  @@index([savedSearchId])
+  @@index([itemId])
+  @@index([savedSearchId, itemId])  // Deduplication index
+  
+  @@map("alert_history")
+}
+
+// =============================================================================
+// FUTURE: USER ACCOUNTS (placeholder for migration path)
+// =============================================================================
+// When auth is implemented:
+// 1. Create users table with id, email, passwordHash, etc.
+// 2. Add foreign key: SavedSearch.userId -> User.id
+// 3. Migrate existing API key associations to user accounts
