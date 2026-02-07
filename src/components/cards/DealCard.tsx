@@ -99,6 +99,17 @@ export const DealCard: React.FC<DealCardProps> = ({
   const isRawCard = GRADE_ESTIMATION_ENABLED && 
     shouldShowGradeEstimate(listing.title, listing.condition, listing.category?.id);
   
+  // Calculate boosted score when grade estimate is available
+  const { finalScore, boost: gradeBoostResult } = useMemo(() => {
+    if (!gradeEstimate) {
+      return { finalScore: dealScore.overall, boost: null };
+    }
+    return applyGradeBoost(dealScore.overall, {
+      overallGrade: gradeEstimate.overallGrade,
+      confidence: gradeEstimate.confidence,
+    });
+  }, [dealScore.overall, gradeEstimate]);
+  
   // Handle grade estimation button click
   const handleEstimateGrade = async () => {
     if (showGradeEstimate && gradeEstimate) {
