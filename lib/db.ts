@@ -10,11 +10,10 @@ import { PrismaClient } from '@prisma/client';
 // Prisma 7+ requires passing the datasource URL to the constructor
 const prismaClientSingleton = () => {
   return new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL,
     log: process.env.NODE_ENV === 'development' 
       ? ['query', 'error', 'warn'] 
       : ['error'],
-  });
+  }).$extends({});
 };
 
 // Type for global prisma instance
