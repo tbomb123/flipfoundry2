@@ -518,7 +518,7 @@ export function getEbayStatus(): { configured: boolean; sandbox: boolean; messag
   
   return {
     configured: true,
-    sandbox: config.sandbox,
-    message: config.sandbox ? 'Connected to eBay Sandbox' : 'Connected to eBay Production',
+    sandbox: false,
+    message: 'Connected to eBay Production',
   };
 }
