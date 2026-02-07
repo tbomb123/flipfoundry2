@@ -243,7 +243,7 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
           </p>
         </div>
       </div>
-    </TooltipProvider>
+    </div>
   );
 };
 
