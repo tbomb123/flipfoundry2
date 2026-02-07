@@ -168,6 +168,7 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
   loading,
   error,
   onRetry,
+  showBoost = true,
   className,
 }) => {
   if (loading) {
@@ -184,6 +185,12 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
 
   const confidenceLevel = getConfidenceLevel(estimate.confidence);
   const gradeColor = getGradeColor(estimate.overallGrade);
+  
+  // Calculate grade boost
+  const gradeBoost = showBoost ? calculateGradeBoost({
+    overallGrade: estimate.overallGrade,
+    confidence: estimate.confidence,
+  }) : null;
 
   return (
     <div className={cn(
