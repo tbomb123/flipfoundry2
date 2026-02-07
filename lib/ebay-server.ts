@@ -23,17 +23,25 @@ import {
 // ============================================================================
 // FEATURE FLAGS
 // Centralized control for enabling/disabling features during early production
+// Read from environment variables with safe defaults
 // ============================================================================
 
 export const FEATURE_FLAGS = {
   // Temporarily disabled to prioritize marketplace trust and request stability
   // Set to true to re-enable sold comparables (findCompletedItems)
-  ENABLE_COMPARABLES: false,
+  ENABLE_COMPARABLES: process.env.FEATURE_COMPARABLES === 'true',
   
   // Grade estimation for raw sports cards
-  // Set to true to show "Estimate Grade" button on raw card listings
-  ENABLE_GRADE_ESTIMATION: false,
+  // Set FEATURE_GRADE_ESTIMATES=true to enable
+  // Default: false (disabled in production)
+  ENABLE_GRADE_ESTIMATION: process.env.FEATURE_GRADE_ESTIMATES === 'true',
 };
+
+// Log feature flag status on startup
+console.log('[FEATURE FLAGS]', {
+  ENABLE_COMPARABLES: FEATURE_FLAGS.ENABLE_COMPARABLES,
+  ENABLE_GRADE_ESTIMATION: FEATURE_FLAGS.ENABLE_GRADE_ESTIMATION,
+});
 
 // ============================================================================
 // SERVER-SIDE CONFIGURATION
