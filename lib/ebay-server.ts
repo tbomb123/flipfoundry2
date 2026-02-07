@@ -13,7 +13,7 @@ import type {
   ListingCondition,
   RiskLevel,
 } from '@/types';
-import PQueue from 'p-queue';
+import { ebayQueue } from './ebayQueue';
 
 // ============================================================================
 // SERVER-SIDE CONFIGURATION
@@ -37,22 +37,6 @@ function getServerConfig(): EbayServerConfig {
     siteId: 0,
   };
 }
-
-// ============================================================================
-// GLOBAL REQUEST QUEUE - Production-grade rate limiting
-// ============================================================================
-
-// p-queue: concurrency 1, max 1 request per 1000ms
-const ebayQueue = new PQueue({
-  concurrency: 1,
-  interval: 1000,
-  intervalCap: 1,
-});
-
-// Log queue status
-ebayQueue.on('active', () => {
-  console.log(`[EBAY QUEUE] Active. Size: ${ebayQueue.size}, Pending: ${ebayQueue.pending}`);
-});
 
 // ============================================================================
 // API ENDPOINTS
