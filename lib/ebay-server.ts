@@ -13,7 +13,12 @@ import type {
   ListingCondition,
   RiskLevel,
 } from '@/types';
-import { ebayQueue } from './ebayQueue';
+import { 
+  ebayQueue, 
+  isCircuitBreakerOpen, 
+  checkForRateLimitError,
+  getCircuitBreakerStatus 
+} from './ebayQueue';
 
 // ============================================================================
 // SERVER-SIDE CONFIGURATION
