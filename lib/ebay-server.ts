@@ -307,7 +307,7 @@ async function executeEbayRequest<T>(
       'X-EBAY-SOA-GLOBAL-ID': 'EBAY-US',
       'Content-Type': 'application/json',
     },
-  });
+  }, operation);
 
   console.log("EBAY STATUS:", response.status);
 
