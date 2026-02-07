@@ -225,23 +225,22 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
 
       {/* Subgrades */}
       <div className="space-y-1.5 mb-3">
-          <SubgradeBar label="Centering" value={estimate.subgrades.centering} />
-          <SubgradeBar label="Corners" value={estimate.subgrades.corners} />
-          <SubgradeBar label="Edges" value={estimate.subgrades.edges} />
-          <SubgradeBar label="Surface" value={estimate.subgrades.surface} />
-        </div>
+        <SubgradeBar label="Centering" value={estimate.subgrades.centering} />
+        <SubgradeBar label="Corners" value={estimate.subgrades.corners} />
+        <SubgradeBar label="Edges" value={estimate.subgrades.edges} />
+        <SubgradeBar label="Surface" value={estimate.subgrades.surface} />
+      </div>
 
-        {/* Disclaimers */}
-        <div className="pt-2 border-t border-slate-700/50 space-y-1">
-          <p className="text-[10px] text-slate-500 flex items-start gap-1">
-            <Info size={10} className="mt-0.5 shrink-0" />
-            AI estimate only. Not PSA/BGS/SGC. Actual grade may differ.
-          </p>
-          <p className="text-[10px] text-slate-500 flex items-start gap-1">
-            <Star size={10} className="mt-0.5 shrink-0" />
-            Results depend on photo quality and angles.
-          </p>
-        </div>
+      {/* Disclaimers */}
+      <div className="pt-2 border-t border-slate-700/50 space-y-1">
+        <p className="text-[10px] text-slate-500 flex items-start gap-1">
+          <Info size={10} className="mt-0.5 shrink-0" />
+          AI estimate only. Not PSA/BGS/SGC. Actual grade may differ.
+        </p>
+        <p className="text-[10px] text-slate-500 flex items-start gap-1">
+          <Star size={10} className="mt-0.5 shrink-0" />
+          Results depend on photo quality and angles.
+        </p>
       </div>
     </div>
   );
