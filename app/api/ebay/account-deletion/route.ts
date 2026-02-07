@@ -3,32 +3,24 @@ import crypto from "crypto";
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const challengeCode = url.searchParams.get("challenge_code");
+  const { searchParams } = new URL(req.url);
+  const challengeCode = searchParams.get("challenge_code");
 
   if (!challengeCode) {
-    return new Response(
-      JSON.stringify({ error: "Missing challenge_code parameter" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response("Missing challenge_code", { status: 400 });
   }
 
   const verificationToken = process.env.EBAY_VERIFICATION_TOKEN!;
-  const host = req.headers.get("host");
-  const endpoint = `https://${host}/api/ebay/account-deletion`;
+  const endpoint = `https://${req.headers.get("host")}/api/ebay/account-deletion`;
 
   const hash = crypto
     .createHash("sha256")
-    .update(challengeCode + verificationToken + endpoint)
+    .update(challengeCode + verificationToken + endpoint, "utf8")
     .digest("base64");
 
-  return new Response(
-    JSON.stringify({ challengeResponse: hash }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    }
-  );
+  return Response.json({
+    challengeResponse: hash,
+  });
 }
 
 export async function POST() {
