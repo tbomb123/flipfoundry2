@@ -13,22 +13,27 @@ import {
   DollarSign,
   BarChart3,
   AlertCircle,
-  Star
+  Star,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScoreBadge, ScoreProgress } from '@/components/ui-custom/ScoreBadge';
 import { RiskBadge } from '@/components/ui-custom/RiskBadge';
+import { GradeEstimateCard } from '@/components/ui-custom/GradeEstimateCard';
 import { shouldShowGradeEstimate } from '@/lib/raw-card-detection';
-import { FEATURE_FLAGS } from '@/lib/ebay-server';
+import { useGradeEstimate } from '@/hooks/useGradeEstimate';
 import type { ValuationResult } from '@/types';
+
+// Feature flag check - import would cause issues in client component
+// so we check via API response or default to false
+const GRADE_ESTIMATION_ENABLED = false; // Will be controlled server-side
 
 interface DealCardProps {
   valuation: ValuationResult;
   onViewDetails?: (valuation: ValuationResult) => void;
   onAddToWatchlist?: (listingId: string) => void;
-  onEstimateGrade?: (valuation: ValuationResult) => void;
   className?: string;
   style?: React.CSSProperties;
 }
