@@ -7,13 +7,13 @@
 
 import { PrismaClient } from '@prisma/client';
 
-// Prisma 7+ requires passing the datasource URL to the constructor
+// Prisma client singleton for Next.js serverless environment
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' 
       ? ['query', 'error', 'warn'] 
       : ['error'],
-  }).$extends({});
+  });
 };
 
 // Type for global prisma instance
