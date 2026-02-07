@@ -3,7 +3,7 @@
  * Premium card displaying a listing with deal analysis
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ExternalLink, 
   Eye, 
@@ -24,6 +24,7 @@ import { RiskBadge } from '@/components/ui-custom/RiskBadge';
 import { GradeEstimateCard } from '@/components/ui-custom/GradeEstimateCard';
 import { shouldShowGradeEstimate } from '@/lib/raw-card-detection';
 import { useGradeEstimate } from '@/hooks/useGradeEstimate';
+import { applyGradeBoost } from '@/lib/grade-boost';
 import type { ValuationResult } from '@/types';
 
 // Feature flag check - import would cause issues in client component
