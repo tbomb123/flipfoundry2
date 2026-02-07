@@ -35,6 +35,7 @@ import {
   getGradingStatus,
   isGradingAvailable 
 } from '@/lib/grading';
+import { logGradeRequest } from '@/lib/grade-stats';
 
 export const runtime = 'nodejs';
 
