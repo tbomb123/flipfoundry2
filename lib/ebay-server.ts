@@ -496,6 +496,8 @@ export async function getSoldComparables(
     searchParams[`itemFilter(${filterIndex}).value`] = endDate.toISOString();
   }
 
+  await delay(1000);
+
   const response = await makeFindingApiRequest<EbayCompletedResponse>('findCompletedItems', searchParams);
 
   const searchResponse = response.findCompletedItemsResponse?.[0];
