@@ -2,11 +2,13 @@
  * Grade Estimate Card Component
  * 
  * Displays AI-generated grade estimates with subgrades and confidence.
+ * Shows score boost information when applicable.
  */
 
 import React from 'react';
-import { Star, Info, AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react';
+import { Star, Info, AlertTriangle, CheckCircle, HelpCircle, TrendingUp, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { calculateGradeBoost, type GradeBoostResult } from '@/lib/grade-boost';
 
 export interface GradeEstimateData {
   overallGrade: number;
@@ -26,6 +28,7 @@ interface GradeEstimateCardProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  showBoost?: boolean;
   className?: string;
 }
 
