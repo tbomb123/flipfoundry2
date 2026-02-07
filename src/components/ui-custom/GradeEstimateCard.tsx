@@ -7,12 +7,6 @@
 import React from 'react';
 import { Star, Info, AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 export interface GradeEstimateData {
   overallGrade: number;
