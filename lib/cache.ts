@@ -7,7 +7,6 @@
  */
 
 import { getRedis, isRedisConfigured } from './redis';
-import crypto from 'crypto';
 
 // Aggressive cache TTLs - minimize API calls
 const SEARCH_CACHE_TTL = 120;         // 2 minutes minimum for search results
@@ -23,6 +22,19 @@ let cacheStats = {
 };
 
 /**
+ * Simple hash function for cache keys (Edge-compatible)
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+/**
  * Normalize and hash query params for consistent cache keys
  */
 function normalizeQuery(params: Record<string, unknown>): string {
@@ -33,8 +45,7 @@ function normalizeQuery(params: Record<string, unknown>): string {
     .map(k => `${k}=${String(params[k]).toLowerCase().trim()}`)
     .join('&');
   
-  // Hash for shorter, consistent keys
-  return crypto.createHash('md5').update(sorted).digest('hex').substring(0, 16);
+  return simpleHash(sorted);
 }
 
 /**
