@@ -87,6 +87,21 @@ export async function POST(request: NextRequest) {
     // Sanitize keywords
     params.keywords = sanitizeKeywords(params.keywords);
 
+    // Deduplication check (2 second window)
+    const dedupeKey = JSON.stringify({ keywords: params.keywords, minPrice: params.minPrice, maxPrice: params.maxPrice, condition: params.condition, page: params.page });
+    const deduped = getDeduped(dedupeKey);
+    if (deduped) {
+      console.log('[DEDUPE] Returning cached result for:', dedupeKey);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: deduped,
+          meta: { timestamp: new Date().toISOString(), requestId: crypto.randomUUID(), executionTimeMs: Date.now() - startTime, deduplicated: true },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'X-Dedupe': 'HIT' } }
+      );
+    }
+
     // Check eBay configuration
     if (!isEbayConfigured()) {
       return new Response(
