@@ -30,9 +30,9 @@ export async function GET() {
     JSON.stringify({
       success: true,
       data: {
-        redis: { configured: redisConfigured, reachable: redisReachable },
+        redisStatus: { configured: redisConfigured, reachable: redisReachable },
         ...stats,
-        namespace: 'flipfoundry:search:*, flipfoundry:comparables:*',
+        namespace: 'ebay:search:*, ebay:comparables:*',
       },
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
