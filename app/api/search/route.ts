@@ -160,13 +160,33 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Search error:', error);
     const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+
+    // Check for eBay rate limit error (errorId 10001)
+    if (errorMessage.includes('errorId') && errorMessage.includes('10001')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'EBAY_RATE_LIMIT',
+            message: 'eBay rate limit reached. Please wait a moment and retry.',
+          },
+          meta: {
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+            executionTimeMs: duration,
+          },
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({
         success: false,
         error: {
           code: 'SEARCH_ERROR',
-          message: error instanceof Error ? error.message : 'An unexpected error occurred',
+          message: errorMessage,
         },
         meta: {
           timestamp: new Date().toISOString(),
