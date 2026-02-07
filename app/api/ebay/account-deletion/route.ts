@@ -14,7 +14,8 @@ export async function GET(req: Request) {
   }
 
   const verificationToken = process.env.EBAY_VERIFICATION_TOKEN!;
-  const endpoint = "https://flipfoundry2.vercel.app/api/ebay/account-deletion";
+  const host = req.headers.get("host");
+  const endpoint = `https://${host}/api/ebay/account-deletion`;
 
   const hash = crypto
     .createHash("sha256")
