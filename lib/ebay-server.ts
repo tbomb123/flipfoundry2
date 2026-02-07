@@ -28,15 +28,13 @@ interface EbayServerConfig {
 }
 
 function getServerConfig(): EbayServerConfig {
-  const config: EbayServerConfig = {
-    appId: process.env.EBAY_APP_ID || '',
-    certId: process.env.EBAY_CERT_ID || '',
-    devId: process.env.EBAY_DEV_ID || '',
-    sandbox: process.env.EBAY_SANDBOX === 'true',
-    siteId: parseInt(process.env.EBAY_SITE_ID || '0', 10),
+  return {
+    appId: process.env.EBAY_APP_ID!,
+    certId: process.env.EBAY_CERT_ID!,
+    devId: process.env.EBAY_DEV_ID!,
+    sandbox: false,
+    siteId: 0,
   };
-
-  return config;
 }
 
 // ============================================================================
