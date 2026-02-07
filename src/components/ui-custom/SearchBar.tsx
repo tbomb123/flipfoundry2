@@ -119,6 +119,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </Button>
           )}
           
+          {/* Save Search Button */}
+          <SaveSearchButton
+            query={keywords}
+            filters={{
+              priceMin: priceRange[0] > 0 ? priceRange[0] : undefined,
+              priceMax: priceRange[1] < 2000 ? priceRange[1] : undefined,
+              category: selectedCategory || undefined,
+            }}
+          />
+          
           <Popover open={showFilters} onOpenChange={setShowFilters}>
             <PopoverTrigger asChild>
               <Button
