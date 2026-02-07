@@ -183,51 +183,48 @@ export const GradeEstimateCard: React.FC<GradeEstimateCardProps> = ({
   const gradeColor = getGradeColor(estimate.overallGrade);
 
   return (
-    <TooltipProvider>
-      <div className={cn(
-        "p-3 bg-slate-800/50 rounded-lg border border-amber-600/30",
-        className
-      )}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center",
-              "bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30"
-            )}>
-              <span className={cn("text-lg font-bold", gradeColor)}>
-                {estimate.overallGrade.toFixed(1)}
+    <div className={cn(
+      "p-3 bg-slate-800/50 rounded-lg border border-amber-600/30",
+      className
+    )}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center",
+            "bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30"
+          )}>
+            <span className={cn("text-lg font-bold", gradeColor)}>
+              {estimate.overallGrade.toFixed(1)}
+            </span>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-white">
+                Estimated Grade
+              </span>
+              <span className="text-xs text-amber-400/70 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                AI
               </span>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium text-white">
-                  Estimated Grade
-                </span>
-                <span className="text-xs text-amber-400/70 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                  AI
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-xs">
-                {confidenceLevel.icon}
-                <span className={confidenceLevel.color}>
-                  {confidenceLevel.label} confidence
-                </span>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle size={10} className="text-slate-500" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">Better photos → better estimate</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+            <div className="flex items-center gap-1 text-xs">
+              {confidenceLevel.icon}
+              <span className={confidenceLevel.color}>
+                {confidenceLevel.label} confidence
+              </span>
+              <span 
+                title="Better photos → better estimate"
+                className="cursor-help"
+              >
+                <HelpCircle size={10} className="text-slate-500 hover:text-slate-400" />
+              </span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Subgrades */}
-        <div className="space-y-1.5 mb-3">
+      {/* Subgrades */}
+      <div className="space-y-1.5 mb-3">
           <SubgradeBar label="Centering" value={estimate.subgrades.centering} />
           <SubgradeBar label="Corners" value={estimate.subgrades.corners} />
           <SubgradeBar label="Edges" value={estimate.subgrades.edges} />
