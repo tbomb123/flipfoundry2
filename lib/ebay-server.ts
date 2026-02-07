@@ -21,6 +21,17 @@ import {
 } from './ebayQueue';
 
 // ============================================================================
+// FEATURE FLAGS
+// Centralized control for enabling/disabling features during early production
+// ============================================================================
+
+export const FEATURE_FLAGS = {
+  // Temporarily disabled to prioritize marketplace trust and request stability
+  // Set to true to re-enable sold comparables (findCompletedItems)
+  ENABLE_COMPARABLES: false,
+};
+
+// ============================================================================
 // SERVER-SIDE CONFIGURATION
 // Credentials loaded ONLY from server environment variables
 // ============================================================================
