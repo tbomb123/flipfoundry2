@@ -28,9 +28,10 @@ export interface GradeEstimateData {
 }
 
 interface GradeEstimateCardProps {
-  estimate: GradeEstimateData;
+  estimate: GradeEstimateData | null;
   loading?: boolean;
-  error?: string;
+  error?: string | null;
+  onRetry?: () => void;
   className?: string;
 }
 
