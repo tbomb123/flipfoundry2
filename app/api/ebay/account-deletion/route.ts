@@ -9,8 +9,9 @@
  */
 
 import { NextRequest } from 'next/server';
+import crypto from 'crypto';
 
-export const runtime = 'edge';
+const ENDPOINT = 'https://flipfoundry2.vercel.app/api/ebay/account-deletion';
 
 export async function GET(request: NextRequest) {
   const challengeCode = request.nextUrl.searchParams.get('challenge_code');
@@ -23,14 +24,12 @@ export async function GET(request: NextRequest) {
   }
 
   const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || '';
-  const endpoint = process.env.EBAY_ACCOUNT_DELETION_ENDPOINT || '';
 
-  // SHA-256 hash of: challengeCode + verificationToken + endpoint (exact order)
-  const encoder = new TextEncoder();
-  const data = encoder.encode(challengeCode + verificationToken + endpoint);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const challengeResponse = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  // SHA-256 hash (base64 encoded) of: challengeCode + verificationToken + endpoint
+  const challengeResponse = crypto
+    .createHash('sha256')
+    .update(challengeCode + verificationToken + ENDPOINT)
+    .digest('base64');
 
   return new Response(
     JSON.stringify({ challengeResponse }),
