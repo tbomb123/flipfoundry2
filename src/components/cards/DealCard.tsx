@@ -27,9 +27,8 @@ import { useGradeEstimate } from '@/hooks/useGradeEstimate';
 import { applyGradeBoost } from '@/lib/grade-boost';
 import type { ValuationResult } from '@/types';
 
-// Feature flag check - import would cause issues in client component
-// so we check via API response or default to false
-const GRADE_ESTIMATION_ENABLED = false; // Will be controlled server-side
+// Feature flag from environment (client-side)
+const GRADE_ESTIMATION_ENABLED = process.env.NEXT_PUBLIC_FEATURE_GRADE_ESTIMATES === 'true';
 
 interface DealCardProps {
   valuation: ValuationResult;
