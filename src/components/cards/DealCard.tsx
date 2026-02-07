@@ -102,13 +102,13 @@ export const DealCard: React.FC<DealCardProps> = ({
   // Calculate boosted score when grade estimate is available
   const { finalScore, boost: gradeBoostResult } = useMemo(() => {
     if (!gradeEstimate) {
-      return { finalScore: dealScore.overall, boost: null };
+      return { finalScore: dealScore.score, boost: null };
     }
-    return applyGradeBoost(dealScore.overall, {
+    return applyGradeBoost(dealScore.score, {
       overallGrade: gradeEstimate.overallGrade,
       confidence: gradeEstimate.confidence,
     });
-  }, [dealScore.overall, gradeEstimate]);
+  }, [dealScore.score, gradeEstimate]);
   
   // Handle grade estimation button click
   const handleEstimateGrade = async () => {
