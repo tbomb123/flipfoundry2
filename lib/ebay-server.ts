@@ -176,42 +176,19 @@ class EbayApiError extends Error {
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 // ============================================================================
-// RATE PROTECTION - Production-grade throttling and retry logic
+// RATE PROTECTION - Exponential backoff and retry logic
 // ============================================================================
 
-// Global throttle: 1 request per second minimum
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL_MS = 1000;
-
-// Mutex: Only one request at a time
-let requestInProgress: Promise<unknown> | null = null;
-
-// Retry configuration
 const RETRY_DELAYS = [2000, 5000, 10000]; // Exponential backoff
 const MAX_RETRIES = 3;
 const RATE_LIMIT_WAIT_MS = 15000; // Wait 15s on eBay rate limit
 
-async function throttledFetch(url: string, options: RequestInit): Promise<Response> {
-  // Enforce minimum interval between requests
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL_MS) {
-    const waitTime = MIN_REQUEST_INTERVAL_MS - timeSinceLastRequest;
-    console.log(`[EBAY THROTTLE] Waiting ${waitTime}ms before request...`);
-    await delay(waitTime);
-  }
-  
-  lastRequestTime = Date.now();
-  return fetch(url, options);
-}
-
-async function fetchWithRetry(url: string, options: RequestInit, operation: string): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await throttledFetch(url, options);
+      const response = await fetch(url, options);
       
       // Check for rate limit in response body (need to clone to read twice)
       if (!response.ok) {
@@ -220,7 +197,7 @@ async function fetchWithRetry(url: string, options: RequestInit, operation: stri
         
         // Check for eBay rate limit error (errorId 10001)
         if (text.includes('errorId') && text.includes('10001')) {
-          console.log(`[EBAY THROTTLE] Rate limit detected (errorId 10001). Waiting ${RATE_LIMIT_WAIT_MS / 1000} seconds before retry...`);
+          console.log(`[EBAY QUEUE] Rate limit detected (errorId 10001). Waiting ${RATE_LIMIT_WAIT_MS / 1000} seconds before retry...`);
           await delay(RATE_LIMIT_WAIT_MS);
           
           if (attempt < MAX_RETRIES) {
@@ -231,7 +208,7 @@ async function fetchWithRetry(url: string, options: RequestInit, operation: stri
         // For 500 errors or other failures, use exponential backoff
         if (response.status >= 500 && attempt < MAX_RETRIES) {
           const backoffTime = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-          console.log(`[EBAY THROTTLE] HTTP ${response.status} error. Waiting ${backoffTime / 1000} seconds before retry ${attempt + 1}/${MAX_RETRIES}...`);
+          console.log(`[EBAY QUEUE] HTTP ${response.status} error. Waiting ${backoffTime / 1000} seconds before retry ${attempt + 1}/${MAX_RETRIES}...`);
           await delay(backoffTime);
           continue;
         }
@@ -243,7 +220,7 @@ async function fetchWithRetry(url: string, options: RequestInit, operation: stri
       
       if (attempt < MAX_RETRIES) {
         const backoffTime = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-        console.log(`[EBAY THROTTLE] Network error. Waiting ${backoffTime / 1000} seconds before retry ${attempt + 1}/${MAX_RETRIES}...`);
+        console.log(`[EBAY QUEUE] Network error. Waiting ${backoffTime / 1000} seconds before retry ${attempt + 1}/${MAX_RETRIES}...`);
         await delay(backoffTime);
       }
     }
@@ -252,90 +229,86 @@ async function fetchWithRetry(url: string, options: RequestInit, operation: stri
   throw lastError || new Error('Max retries exceeded');
 }
 
+// Core API request function (called within queue)
+async function executeEbayRequest<T>(
+  operation: string,
+  params: Record<string, string | number>
+): Promise<T> {
+  const config = getServerConfig();
+  
+  if (!config.appId) {
+    throw new EbayApiError('eBay API not configured', 'NOT_CONFIGURED');
+  }
+  
+  const baseUrl = EBAY_API_ENDPOINTS.finding.production;
+
+  const queryParams = new URLSearchParams();
+
+  queryParams.append('OPERATION-NAME', operation);
+  queryParams.append('SERVICE-VERSION', '1.13.0');
+  queryParams.append('SECURITY-APPNAME', config.appId);
+  queryParams.append('GLOBAL-ID', 'EBAY-US');
+  queryParams.append('RESPONSE-DATA-FORMAT', 'JSON');
+  queryParams.append('REST-PAYLOAD', '');
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      queryParams.append(key, String(value));
+    }
+  });
+
+  const url = `${baseUrl}?${queryParams.toString()}`;
+
+  console.log("=== EBAY REQUEST ===");
+  console.log("APP ID:", config.appId ? "Loaded" : "MISSING");
+  console.log("OPERATION:", operation);
+
+  const response = await fetchWithRetry(url, {
+    method: 'GET',
+    headers: {
+      'X-EBAY-SOA-SECURITY-APPNAME': config.appId,
+      'X-EBAY-SOA-OPERATION-NAME': operation,
+      'X-EBAY-SOA-SERVICE-NAME': 'FindingService',
+      'X-EBAY-SOA-RESPONSE-DATA-FORMAT': 'JSON',
+      'X-EBAY-SOA-GLOBAL-ID': 'EBAY-US',
+      'Content-Type': 'application/json',
+    },
+  });
+
+  console.log("EBAY STATUS:", response.status);
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("EBAY ERROR BODY:", text);
+
+    throw new EbayApiError(
+      `HTTP Error ${response.status} - ${text}`,
+      'HTTP_ERROR',
+      response.status
+    );
+  }
+
+  const data = (await response.json()) as T;
+  const anyData = data as Record<string, unknown>;
+  
+  if (anyData.errorMessage) {
+    throw new EbayApiError(JSON.stringify(anyData.errorMessage), 'EBAY_API_ERROR');
+  }
+
+  return data;
+}
+
+// Queued API request function - ALL eBay calls go through this
 async function makeFindingApiRequest<T>(
   operation: string,
   params: Record<string, string | number>
 ): Promise<T> {
-  // Mutex: Wait for any in-progress request to complete
-  if (requestInProgress) {
-    console.log('[EBAY THROTTLE] Request queued, waiting for previous request...');
-    await requestInProgress;
-  }
+  console.log(`[EBAY QUEUE] Queuing ${operation}. Queue size: ${ebayQueue.size}, Pending: ${ebayQueue.pending}`);
   
-  // Create new promise for this request
-  let resolveRequest: () => void;
-  requestInProgress = new Promise<void>((resolve) => {
-    resolveRequest = resolve;
-  });
-  
-  try {
-    const config = getServerConfig();
-    
-    if (!config.appId) {
-      throw new EbayApiError('eBay API not configured', 'NOT_CONFIGURED');
-    }
-    
-    const baseUrl = EBAY_API_ENDPOINTS.finding.production;
-
-    const queryParams = new URLSearchParams();
-
-    queryParams.append('OPERATION-NAME', operation);
-    queryParams.append('SERVICE-VERSION', '1.13.0');
-    queryParams.append('SECURITY-APPNAME', config.appId);
-    queryParams.append('GLOBAL-ID', 'EBAY-US');
-    queryParams.append('RESPONSE-DATA-FORMAT', 'JSON');
-    queryParams.append('REST-PAYLOAD', '');
-
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        queryParams.append(key, String(value));
-      }
-    });
-
-    const url = `${baseUrl}?${queryParams.toString()}`;
-
-    console.log("=== EBAY CONFIG ===");
-    console.log("APP ID:", config.appId ? "Loaded" : "MISSING");
-    console.log("REQUEST URL:", url);
-
-    const response = await fetchWithRetry(url, {
-      method: 'GET',
-      headers: {
-        'X-EBAY-SOA-SECURITY-APPNAME': config.appId,
-        'X-EBAY-SOA-OPERATION-NAME': operation,
-        'X-EBAY-SOA-SERVICE-NAME': 'FindingService',
-        'X-EBAY-SOA-RESPONSE-DATA-FORMAT': 'JSON',
-        'X-EBAY-SOA-GLOBAL-ID': 'EBAY-US',
-        'Content-Type': 'application/json',
-      },
-    }, operation);
-
-    console.log("EBAY STATUS:", response.status);
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("EBAY ERROR BODY:", text);
-
-      throw new EbayApiError(
-        `HTTP Error ${response.status} - ${text}`,
-        'HTTP_ERROR',
-        response.status
-      );
-    }
-
-    const data = (await response.json()) as T;
-    const anyData = data as Record<string, unknown>;
-    
-    if (anyData.errorMessage) {
-      throw new EbayApiError(JSON.stringify(anyData.errorMessage), 'EBAY_API_ERROR');
-    }
-
-    return data;
-  } finally {
-    // Release mutex
-    resolveRequest!();
-    requestInProgress = null;
-  }
+  return ebayQueue.add(async () => {
+    console.log(`[EBAY QUEUE] Executing ${operation}`);
+    return executeEbayRequest<T>(operation, params);
+  }) as Promise<T>;
 }
 
 // ============================================================================
