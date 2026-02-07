@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -18,9 +19,10 @@ export async function GET(req: Request) {
     .update(challengeCode + verificationToken + endpoint, "utf8")
     .digest("base64");
 
-  return Response.json({
-    challengeResponse: hash,
-  });
+  return Response.json(
+    { challengeResponse: hash },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 export async function POST() {
