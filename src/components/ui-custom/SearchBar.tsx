@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Search, SlidersHorizontal, X, TrendingUp } from 'lucide-react';
+import { Search, SlidersHorizontal, X, TrendingUp, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
+import { SaveSearchButton } from './SaveSearchButton';
 import type { SearchParams, SearchFilters } from '@/types';
 
 interface SearchBarProps {
