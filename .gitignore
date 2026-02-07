@@ -138,3 +138,5 @@ next-env.d.ts
 # Environment files
 *.env
 *.env.*
+
+/src/generated/prisma
