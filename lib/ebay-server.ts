@@ -172,6 +172,8 @@ async function makeFindingApiRequest<T>(
     ? EBAY_API_ENDPOINTS.finding.sandbox
     : EBAY_API_ENDPOINTS.finding.production;
 
+  console.log("[EBAY BASE URL]", baseUrl);
+
   const queryParams = new URLSearchParams();
 
   queryParams.append('OPERATION-NAME', operation);
