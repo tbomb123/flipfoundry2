@@ -221,7 +221,7 @@ export default function SavedSearchesPage() {
                         {search.name}
                       </CardTitle>
                       <CardDescription className="text-slate-400 text-sm mt-1">
-                        "{search.query}"
+                        &quot;{search.query}&quot;
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-1">
