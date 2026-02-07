@@ -133,8 +133,9 @@ export async function POST(request: NextRequest) {
     recordCacheEvent('search', false);
     const duration = Date.now() - startTime;
 
-    // Cache result
+    // Cache result (both Redis and dedupe)
     setCachedSearch(cacheParams, result);
+    setDeduped(dedupeKey, result);
 
     return new Response(
       JSON.stringify({
