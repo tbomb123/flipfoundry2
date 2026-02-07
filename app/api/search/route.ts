@@ -13,6 +13,24 @@ import { recordCacheEvent } from '@/lib/cache-stats';
 export const runtime = 'edge';
 export const preferredRegion = 'iad1';
 
+// In-memory deduplication cache (2 second TTL)
+const dedupeCache = new Map<string, { data: unknown; timestamp: number }>();
+const DEDUPE_TTL_MS = 2000;
+
+function getDeduped(key: string): unknown | null {
+  const entry = dedupeCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > DEDUPE_TTL_MS) {
+    dedupeCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setDeduped(key: string, data: unknown): void {
+  dedupeCache.set(key, { data, timestamp: Date.now() });
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
