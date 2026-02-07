@@ -19,15 +19,13 @@ export async function GET(req: Request) {
     .update(challengeCode + verificationToken + endpoint, "utf8")
     .digest("base64");
 
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  headers.set("Cache-Control", "no-store");
+
   return new Response(
     JSON.stringify({ challengeResponse: hash }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-      },
-    }
+    { status: 200, headers }
   );
 }
 
