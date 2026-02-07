@@ -1,10 +1,12 @@
 /**
  * POST /api/search/comparables
  * Get sold comparables for market analysis
+ * 
+ * NOTE: Currently disabled via feature flag to prioritize marketplace trust
  */
 
 import { NextRequest } from 'next/server';
-import { getSoldComparables, isEbayConfigured } from '@/lib/ebay-server';
+import { getSoldComparables, isEbayConfigured, FEATURE_FLAGS } from '@/lib/ebay-server';
 import { ComparablesParamsSchema, sanitizeKeywords } from '@/lib/validation';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { getCachedComparables, setCachedComparables } from '@/lib/cache';
@@ -15,6 +17,27 @@ export const preferredRegion = 'iad1';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+
+  // Feature flag check - comparables temporarily disabled
+  if (!FEATURE_FLAGS.ENABLE_COMPARABLES) {
+    console.log('[COMPARABLES] Feature disabled. Returning empty result.');
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: { 
+          comparables: [],
+          message: 'Comparables feature temporarily disabled for marketplace stability.',
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+          executionTimeMs: Date.now() - startTime,
+          featureDisabled: true,
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
   try {
     // Rate limiting
