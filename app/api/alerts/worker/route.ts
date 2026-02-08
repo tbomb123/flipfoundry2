@@ -1,10 +1,13 @@
 /**
- * POST /api/alerts/worker
+ * GET/POST /api/alerts/worker
  * 
- * Trigger the alert worker manually or via cron.
- * Protected by API key.
+ * Alert worker management endpoint.
  * 
- * This is the ONLY endpoint that executes saved searches against eBay.
+ * GET: Returns worker status and pending search count
+ * POST: Triggers a worker run (protected by API key)
+ * 
+ * SAFETY: Worker respects FEATURE_EBAY_CALLS flag.
+ * When false, searches are simulated (no eBay calls).
  */
 
 import { NextRequest } from 'next/server';
@@ -17,7 +20,7 @@ export const maxDuration = 60; // 60 seconds
 
 /**
  * GET /api/alerts/worker
- * Get worker status
+ * Get worker status and pending search count
  */
 export async function GET(request: NextRequest) {
   // Check API key
@@ -37,13 +40,24 @@ export async function GET(request: NextRequest) {
   
   return Response.json({
     success: true,
-    data: status,
+    data: {
+      ...status,
+      warnings: [
+        ...(!status.ebayCallsEnabled ? ['eBay calls DISABLED (FEATURE_EBAY_CALLS=false)'] : []),
+        ...(!status.emailReady ? ['Email service not configured'] : []),
+        ...(!status.databaseReady ? ['Database not configured'] : []),
+      ],
+    },
   });
 }
 
 /**
  * POST /api/alerts/worker
- * Trigger worker run
+ * Trigger a worker run
+ * 
+ * Body (optional):
+ * - dryRun: boolean (default: false)
+ * - scanBudget: number (default: 20, max: 50)
  */
 export async function POST(request: NextRequest) {
   // Check API key (required for worker trigger)
@@ -60,13 +74,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Parse optional config overrides
-  let config: { dryRun?: boolean; maxSearchesPerRun?: number } = {};
+  let config: { dryRun?: boolean; scanBudget?: number } = {};
   try {
     const body = await request.json().catch(() => ({}));
     config = {
       dryRun: body.dryRun === true,
-      maxSearchesPerRun: typeof body.maxSearchesPerRun === 'number' 
-        ? Math.min(body.maxSearchesPerRun, 50) 
+      scanBudget: typeof body.scanBudget === 'number' 
+        ? Math.min(body.scanBudget, 50)  // Hard cap at 50
         : undefined,
     };
   } catch {
@@ -77,8 +91,11 @@ export async function POST(request: NextRequest) {
   
   const result = await runAlertWorker(config);
 
+  // Return appropriate status code
+  const statusCode = result.success ? 200 : 500;
+
   return Response.json({
-    success: true,
+    success: result.success,
     data: result,
-  });
+  }, { status: statusCode });
 }
