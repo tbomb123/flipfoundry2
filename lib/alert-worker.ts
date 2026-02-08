@@ -522,6 +522,11 @@ export async function getWorkerStatus(): Promise<{
   pendingSearches: number;
   scanBudget: number;
   lastRunAt: string | null;
+  lock: {
+    key: string;
+    active: boolean;
+    ttlSeconds: number | null;
+  };
 }> {
   let searchesWithAlerts = 0;
   let pendingSearches = 0;
@@ -538,6 +543,10 @@ export async function getWorkerStatus(): Promise<{
     }
   }
 
+  // Check lock status
+  const lockActive = await isWorkerLockHeld();
+  const lockTTL = lockActive ? await getWorkerLockTTL() : null;
+
   return {
     databaseReady: isDatabaseConfigured(),
     emailReady: isEmailConfigured(),
@@ -546,5 +555,10 @@ export async function getWorkerStatus(): Promise<{
     pendingSearches,
     scanBudget: SCAN_BUDGET_PER_RUN,
     lastRunAt: lastWorkerRunAt > 0 ? new Date(lastWorkerRunAt).toISOString() : null,
+    lock: {
+      key: WORKER_LOCK_KEY,
+      active: lockActive,
+      ttlSeconds: lockTTL,
+    },
   };
 }
