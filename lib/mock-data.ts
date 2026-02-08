@@ -145,8 +145,8 @@ export function generateMockSearchResults(
     };
 
     const sellerRisk: SellerRiskProfile = {
-      level: getRiskLevel(listing.seller.positiveFeedbackPercent),
-      score: listing.seller.positiveFeedbackPercent,
+      level: getRiskLevel(listing.seller.feedbackPercentage),
+      score: listing.seller.feedbackPercentage,
       factors: [],
       recommendation: 'Safe to purchase',
     };
