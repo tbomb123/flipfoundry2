@@ -90,7 +90,9 @@ export function generateMockSearchResults(
     relevantProducts = MOCK_PRODUCTS;
   }
 
-  const valuations = Array.from({ length: count }, (_, i) => {
+  const startTime = Date.now();
+  
+  const listings = Array.from({ length: count }, (_, i) => {
     const product = relevantProducts[i % relevantProducts.length];
     const currentPrice = randomInRange(product.priceRange[0], product.priceRange[1]);
     const marketValue = currentPrice * (1 + randomInRange(10, 40) / 100);
@@ -126,15 +128,15 @@ export function generateMockSearchResults(
   });
 
   // Sort by deal score descending
-  valuations.sort((a, b) => b.dealScore - a.dealScore);
+  listings.sort((a, b) => b.dealScore - a.dealScore);
 
   return {
-    valuations,
-    totalCount: count,
+    listings,
+    totalResults: count,
     page: 1,
     perPage: count,
     hasMore: false,
-    searchTerms: keywords,
-    mock: true, // Flag indicating this is mock data
+    searchId: `mock-search-${Date.now()}`,
+    executionTimeMs: Date.now() - startTime,
   };
 }
