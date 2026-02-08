@@ -107,6 +107,12 @@ interface WorkerResult {
   };
   executions: SearchExecutionResult[];
   budgetExhausted: boolean;
+  skippedDueToLock?: boolean;
+  lockInfo?: {
+    acquired: boolean;
+    key: string;
+    ttlSeconds: number;
+  };
 }
 
 // =============================================================================
