@@ -241,6 +241,28 @@ export async function updateLastRun(id: string): Promise<void> {
 }
 
 /**
+ * Schedule next run after worker processes a search
+ * next_run_at = NOW() + (run_frequency_minutes * INTERVAL '1 minute')
+ */
+export async function scheduleNextRun(id: string, frequencyMinutes: number): Promise<void> {
+  if (!isDatabaseConfigured()) {
+    throw new Error('Database not configured');
+  }
+
+  const nextRunAt = new Date(Date.now() + frequencyMinutes * 60 * 1000);
+  
+  await prisma.savedSearch.update({
+    where: { id },
+    data: { 
+      lastRunAt: new Date(),
+      nextRunAt,
+    },
+  });
+  
+  console.log(`[SCHEDULER] Search ${id} next run scheduled for ${nextRunAt.toISOString()}`);
+}
+
+/**
  * Get all searches with alerts enabled (for worker)
  */
 export async function getSearchesWithAlertsEnabled(): Promise<SavedSearch[]> {
