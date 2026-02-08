@@ -28,6 +28,7 @@ export interface CreateSavedSearchInput {
   filters?: SavedSearchFilters;
   alertEnabled?: boolean;
   minimumScore?: number;
+  runFrequencyMinutes?: number;
 }
 
 export interface UpdateSavedSearchInput {
@@ -36,6 +37,7 @@ export interface UpdateSavedSearchInput {
   filters?: SavedSearchFilters;
   alertEnabled?: boolean;
   minimumScore?: number;
+  runFrequencyMinutes?: number;
 }
 
 export interface SavedSearchWithMeta extends SavedSearch {
