@@ -352,6 +352,7 @@ async function processSearch(
  * EXECUTES ONCE PER INVOCATION - does NOT loop.
  * 
  * Safety controls:
+ * - Distributed lock (Redis) - prevents concurrent execution
  * - Scan budget (max 20 searches)
  * - Feature flag (FEATURE_EBAY_CALLS)
  * - Scheduling (next_run_at based selection)
@@ -368,6 +369,54 @@ export async function runAlertWorker(
     startedAt: startedAt.toISOString(),
     completedAt: '',
     durationMs: 0,
+    config: {
+      scanBudget: config.scanBudget,
+      dryRun: config.dryRun,
+      ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
+    },
+    stats: {
+      totalPending: 0,
+      processed: 0,
+      deferred: 0,
+      alertsSent: 0,
+      errors: 0,
+    },
+    executions: [],
+    budgetExhausted: false,
+    skippedDueToLock: false,
+    lockInfo: {
+      acquired: false,
+      key: WORKER_LOCK_KEY,
+      ttlSeconds: WORKER_LOCK_TTL_SECONDS,
+    },
+  };
+
+  console.log('[WORKER] ========================================');
+  console.log('[WORKER] Alert Worker Run Starting');
+  console.log('[WORKER] ========================================');
+
+  // ==========================================================================
+  // DISTRIBUTED LOCK - Prevent concurrent executions
+  // ==========================================================================
+  const lockAcquired = await acquireWorkerLock();
+  result.lockInfo!.acquired = lockAcquired;
+  
+  if (!lockAcquired) {
+    console.log('[WORKER] Worker skipped — lock active');
+    result.skippedDueToLock = true;
+    result.completedAt = new Date().toISOString();
+    result.durationMs = Date.now() - startedAt.getTime();
+    // Return success=true because this is expected behavior, not an error
+    result.success = true;
+    return result;
+  }
+
+  console.log('[WORKER] Config:', {
+    scanBudget: config.scanBudget,
+    dryRun: config.dryRun,
+    ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
+    lockAcquired: true,
+  });
     config: {
       scanBudget: config.scanBudget,
       dryRun: config.dryRun,
