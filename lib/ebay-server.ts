@@ -27,6 +27,11 @@ import {
 // ============================================================================
 
 export const FEATURE_FLAGS = {
+  // MASTER SWITCH: Disable ALL eBay API calls
+  // Set FEATURE_EBAY_CALLS=true to enable live eBay requests
+  // Default: false (returns mock data until rate limit clears)
+  ENABLE_EBAY_CALLS: process.env.FEATURE_EBAY_CALLS === 'true',
+  
   // Temporarily disabled to prioritize marketplace trust and request stability
   // Set to true to re-enable sold comparables (findCompletedItems)
   ENABLE_COMPARABLES: process.env.FEATURE_COMPARABLES === 'true',
@@ -39,6 +44,7 @@ export const FEATURE_FLAGS = {
 
 // Log feature flag status on startup
 console.log('[FEATURE FLAGS]', {
+  ENABLE_EBAY_CALLS: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
   ENABLE_COMPARABLES: FEATURE_FLAGS.ENABLE_COMPARABLES,
   ENABLE_GRADE_ESTIMATION: FEATURE_FLAGS.ENABLE_GRADE_ESTIMATION,
 });
