@@ -126,6 +126,85 @@ const DEFAULT_CONFIG: WorkerConfig = {
 };
 
 // =============================================================================
+// DISTRIBUTED LOCK (Redis)
+// =============================================================================
+
+/**
+ * Attempt to acquire distributed lock for worker execution.
+ * Uses Redis SET NX (set if not exists) with TTL.
+ * 
+ * @returns true if lock acquired, false if lock already held
+ */
+async function acquireWorkerLock(): Promise<boolean> {
+  const redis = getRedis();
+  
+  if (!redis) {
+    // No Redis = no distributed locking, allow execution
+    console.log('[WORKER LOCK] Redis not configured, skipping distributed lock');
+    return true;
+  }
+
+  try {
+    // SET key value NX EX ttl
+    // NX = only set if not exists
+    // EX = expire in seconds
+    const lockValue = `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const result = await redis.set(WORKER_LOCK_KEY, lockValue, {
+      nx: true,  // Only set if not exists
+      ex: WORKER_LOCK_TTL_SECONDS,  // TTL in seconds
+    });
+
+    if (result === 'OK') {
+      console.log(`[WORKER LOCK] Acquired lock: ${WORKER_LOCK_KEY} (TTL: ${WORKER_LOCK_TTL_SECONDS}s)`);
+      return true;
+    } else {
+      console.log(`[WORKER LOCK] Worker skipped — lock active`);
+      return false;
+    }
+  } catch (error) {
+    console.error('[WORKER LOCK] Failed to acquire lock:', error);
+    // On Redis error, allow execution (fail-open for availability)
+    return true;
+  }
+}
+
+/**
+ * Check if worker lock is currently held.
+ */
+async function isWorkerLockHeld(): Promise<boolean> {
+  const redis = getRedis();
+  
+  if (!redis) {
+    return false;
+  }
+
+  try {
+    const value = await redis.get(WORKER_LOCK_KEY);
+    return value !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get remaining TTL on worker lock (for monitoring).
+ */
+async function getWorkerLockTTL(): Promise<number | null> {
+  const redis = getRedis();
+  
+  if (!redis) {
+    return null;
+  }
+
+  try {
+    const ttl = await redis.ttl(WORKER_LOCK_KEY);
+    return ttl > 0 ? ttl : null;
+  } catch {
+    return null;
+  }
+}
+
+// =============================================================================
 // SEARCH EXECUTION
 // =============================================================================
 
