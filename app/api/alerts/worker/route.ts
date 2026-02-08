@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       ...status,
       warnings: [
         ...(!status.ebayCallsEnabled ? ['eBay calls DISABLED (FEATURE_EBAY_CALLS=false)'] : []),
+        ...(!status.redisConfigured ? ['Redis not configured (distributed lock disabled)'] : []),
         ...(!status.emailReady ? ['Email service not configured'] : []),
         ...(!status.databaseReady ? ['Database not configured'] : []),
         ...(status.lock.active ? [`Worker lock active (TTL: ${status.lock.ttlSeconds}s)`] : []),
