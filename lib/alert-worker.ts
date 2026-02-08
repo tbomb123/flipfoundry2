@@ -396,6 +396,18 @@ export async function runAlertWorker(
   console.log('[WORKER] ========================================');
 
   // ==========================================================================
+  // RUNTIME DIAGNOSTICS - Redis initialization check
+  // ==========================================================================
+  const redisUrlPresent = !!process.env.UPSTASH_REDIS_REST_URL;
+  const redisTokenPresent = !!process.env.UPSTASH_REDIS_REST_TOKEN;
+  const redisClientInitialized = getRedis() !== null;
+  
+  console.log('[WORKER] Redis Diagnostics:');
+  console.log(`[WORKER]   REDIS_URL present: ${redisUrlPresent}`);
+  console.log(`[WORKER]   REDIS_TOKEN present: ${redisTokenPresent}`);
+  console.log(`[WORKER]   Redis client initialized: ${redisClientInitialized}`);
+
+  // ==========================================================================
   // DISTRIBUTED LOCK - Prevent concurrent executions
   // ==========================================================================
   const lockAcquired = await acquireWorkerLock();
