@@ -24,6 +24,7 @@ import { wasAlertSent, recordAlert } from './alert-history';
 import { sendDealAlertEmail, isEmailConfigured } from './email';
 import { isDatabaseConfigured } from './db';
 import { FEATURE_FLAGS } from './ebay-server';
+import { getRedis, isRedisConfigured } from './redis';
 import type { SavedSearch } from '@prisma/client';
 
 // =============================================================================
@@ -42,6 +43,17 @@ const SCAN_BUDGET_PER_RUN = 20;
  * Prevents accidental rapid re-invocation.
  */
 const MIN_WORKER_INTERVAL_SECONDS = 30;
+
+/**
+ * Distributed lock key for preventing concurrent worker executions.
+ */
+const WORKER_LOCK_KEY = 'alerts_worker_lock';
+
+/**
+ * Lock TTL in seconds (10 minutes).
+ * Lock releases automatically via TTL - no manual release needed.
+ */
+const WORKER_LOCK_TTL_SECONDS = 600;
 
 // Track last worker run time (in-memory, per-instance)
 let lastWorkerRunAt: number = 0;
