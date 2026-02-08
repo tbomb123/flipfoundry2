@@ -529,6 +529,7 @@ export async function runAlertWorker(
 export async function getWorkerStatus(): Promise<{
   databaseReady: boolean;
   emailReady: boolean;
+  redisConfigured: boolean;
   ebayCallsEnabled: boolean;
   searchesWithAlerts: number;
   pendingSearches: number;
@@ -562,6 +563,7 @@ export async function getWorkerStatus(): Promise<{
   return {
     databaseReady: isDatabaseConfigured(),
     emailReady: isEmailConfigured(),
+    redisConfigured: isRedisConfigured(),
     ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
     searchesWithAlerts,
     pendingSearches,
