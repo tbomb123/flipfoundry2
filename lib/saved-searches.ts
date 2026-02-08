@@ -50,6 +50,7 @@ export interface SavedSearchWithMeta extends SavedSearch {
 
 /**
  * Create a new saved search
+ * Automatically initializes next_run_at = NOW() for immediate worker eligibility
  */
 export async function createSavedSearch(
   input: CreateSavedSearchInput
@@ -58,10 +59,21 @@ export async function createSavedSearch(
     throw new Error('Database not configured');
   }
 
-  const { userId, name, query, filters = {}, alertEnabled = false, minimumScore = 70 } = input;
+  const { 
+    userId, 
+    name, 
+    query, 
+    filters = {}, 
+    alertEnabled = false, 
+    minimumScore = 70,
+    runFrequencyMinutes = 15,
+  } = input;
 
   // Validate minimum score range
   const clampedScore = Math.min(100, Math.max(0, minimumScore));
+  
+  // Validate run frequency (min 5 minutes, max 1440 = 24 hours)
+  const clampedFrequency = Math.min(1440, Math.max(5, runFrequencyMinutes));
 
   return prisma.savedSearch.create({
     data: {
@@ -71,6 +83,9 @@ export async function createSavedSearch(
       filters: filters as Prisma.JsonObject,
       alertEnabled,
       minimumScore: clampedScore,
+      runFrequencyMinutes: clampedFrequency,
+      // Auto-schedule: next_run_at = NOW() for immediate worker eligibility
+      nextRunAt: new Date(),
     },
   });
 }
