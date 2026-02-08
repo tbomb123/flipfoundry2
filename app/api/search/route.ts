@@ -116,6 +116,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // FEATURE FLAG: Return mock data when eBay calls are disabled
+    if (!FEATURE_FLAGS.ENABLE_EBAY_CALLS) {
+      console.log('[SEARCH] eBay calls disabled, returning mock data for:', params.keywords);
+      const mockResult = generateMockSearchResults(params.keywords, params.perPage || 12);
+      const duration = Date.now() - startTime;
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: mockResult,
+          meta: {
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+            executionTimeMs: duration,
+            mock: true,
+            notice: 'eBay API calls temporarily disabled. Showing mock data.',
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Mock-Data': 'true',
+            'X-RateLimit-Limit': String(rateLimitResult.limit),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(rateLimitResult.reset),
+          },
+        }
+      );
+    }
+
     // Check cache
     const cacheParams = { keywords: params.keywords, minPrice: params.minPrice, maxPrice: params.maxPrice, condition: params.condition };
     const cached = await getCachedSearch(cacheParams);
