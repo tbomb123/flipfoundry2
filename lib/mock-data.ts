@@ -111,14 +111,14 @@ export function generateMockSearchResults(
         name: product.category,
         level: 1,
         marketplace: {
-          id: 'EBAY_US',
+          id: 'ebay' as const,
           name: 'eBay US',
           countryCode: 'US',
           currency: 'USD',
         },
       },
       marketplace: {
-        id: 'EBAY_US',
+        id: 'ebay' as const,
         name: 'eBay US',
         countryCode: 'US',
         currency: 'USD',
