@@ -264,6 +264,7 @@ export async function scheduleNextRun(id: string, frequencyMinutes: number): Pro
 
 /**
  * Get all searches with alerts enabled (for worker)
+ * @deprecated Use getScheduledSearches() for proper scheduling
  */
 export async function getSearchesWithAlertsEnabled(): Promise<SavedSearch[]> {
   if (!isDatabaseConfigured()) {
@@ -273,6 +274,55 @@ export async function getSearchesWithAlertsEnabled(): Promise<SavedSearch[]> {
   return prisma.savedSearch.findMany({
     where: { alertEnabled: true },
     orderBy: { lastRunAt: 'asc' }, // Prioritize searches that haven't run recently
+  });
+}
+
+/**
+ * Get searches eligible for execution by the worker
+ * 
+ * Selection criteria:
+ * - alert_enabled = true
+ * - next_run_at <= NOW()
+ * 
+ * Ordered by next_run_at ASC (oldest first)
+ * Limited by scan budget
+ */
+export async function getScheduledSearches(limit: number = 20): Promise<SavedSearch[]> {
+  if (!isDatabaseConfigured()) {
+    throw new Error('Database not configured');
+  }
+
+  const now = new Date();
+  
+  return prisma.savedSearch.findMany({
+    where: { 
+      alertEnabled: true,
+      nextRunAt: {
+        lte: now,  // next_run_at <= NOW()
+      },
+    },
+    orderBy: { nextRunAt: 'asc' },  // Oldest first (fairness)
+    take: limit,  // Scan budget enforcement
+  });
+}
+
+/**
+ * Count searches pending execution (for monitoring)
+ */
+export async function countPendingSearches(): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    return 0;
+  }
+
+  const now = new Date();
+  
+  return prisma.savedSearch.count({
+    where: { 
+      alertEnabled: true,
+      nextRunAt: {
+        lte: now,
+      },
+    },
   });
 }
 
