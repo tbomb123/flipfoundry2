@@ -110,6 +110,12 @@ export function generateMockSearchResults(
         id: 'mock-category',
         name: product.category,
         level: 1,
+        marketplace: {
+          id: 'EBAY_US',
+          name: 'eBay US',
+          countryCode: 'US',
+          currency: 'USD',
+        },
       },
       marketplace: {
         id: 'EBAY_US',
