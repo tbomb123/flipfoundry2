@@ -1,14 +1,17 @@
 /**
  * POST /api/search
  * Search for active eBay listings with rate limiting and validation
+ * 
+ * When FEATURE_EBAY_CALLS=false, returns mock data to keep UI functional.
  */
 
 import { NextRequest } from 'next/server';
-import { searchListings, isEbayConfigured } from '@/lib/ebay-server';
+import { searchListings, isEbayConfigured, FEATURE_FLAGS } from '@/lib/ebay-server';
 import { SearchParamsSchema, sanitizeKeywords, validatePriceRange } from '@/lib/validation';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { getCachedSearch, setCachedSearch } from '@/lib/cache';
 import { recordCacheEvent } from '@/lib/cache-stats';
+import { generateMockSearchResults } from '@/lib/mock-data';
 
 export const runtime = 'edge';
 export const preferredRegion = 'iad1';
