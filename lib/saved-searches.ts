@@ -170,9 +170,16 @@ export async function updateSavedSearch(
   }
   if (input.alertEnabled !== undefined) {
     updateData.alertEnabled = input.alertEnabled;
+    // When enabling alerts, set next_run_at to NOW() if not already scheduled
+    if (input.alertEnabled) {
+      updateData.nextRunAt = new Date();
+    }
   }
   if (input.minimumScore !== undefined) {
     updateData.minimumScore = Math.min(100, Math.max(0, input.minimumScore));
+  }
+  if (input.runFrequencyMinutes !== undefined) {
+    updateData.runFrequencyMinutes = Math.min(1440, Math.max(5, input.runFrequencyMinutes));
   }
 
   return prisma.savedSearch.update({
