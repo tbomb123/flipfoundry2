@@ -105,18 +105,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check eBay configuration
-    if (!isEbayConfigured()) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: { code: 'SERVICE_UNAVAILABLE', message: 'eBay API not configured on server' },
-        }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
     // FEATURE FLAG: Return mock data when eBay calls are disabled
+    // This check comes BEFORE eBay config check to return mock data even without API keys
     if (!FEATURE_FLAGS.ENABLE_EBAY_CALLS) {
       console.log('[SEARCH] eBay calls disabled, returning mock data for:', params.keywords);
       const mockResult = generateMockSearchResults(params.keywords, params.perPage || 12);
@@ -144,6 +134,17 @@ export async function POST(request: NextRequest) {
             'X-RateLimit-Reset': String(rateLimitResult.reset),
           },
         }
+      );
+    }
+
+    // Check eBay configuration (only matters when live calls are enabled)
+    if (!isEbayConfigured()) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: 'SERVICE_UNAVAILABLE', message: 'eBay API not configured on server' },
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
