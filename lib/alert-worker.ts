@@ -417,30 +417,6 @@ export async function runAlertWorker(
     ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
     lockAcquired: true,
   });
-    config: {
-      scanBudget: config.scanBudget,
-      dryRun: config.dryRun,
-      ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
-    },
-    stats: {
-      totalPending: 0,
-      processed: 0,
-      deferred: 0,
-      alertsSent: 0,
-      errors: 0,
-    },
-    executions: [],
-    budgetExhausted: false,
-  };
-
-  console.log('[WORKER] ========================================');
-  console.log('[WORKER] Alert Worker Run Starting');
-  console.log('[WORKER] ========================================');
-  console.log('[WORKER] Config:', {
-    scanBudget: config.scanBudget,
-    dryRun: config.dryRun,
-    ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
-  });
 
   // Rate limit check (prevent rapid re-invocation)
   const now = Date.now();
