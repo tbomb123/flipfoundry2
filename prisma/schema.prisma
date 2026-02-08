@@ -16,21 +16,25 @@ datasource db {
 // =============================================================================
 
 model SavedSearch {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String   @map("user_id")  // API key for now, user UUID later
-  name          String   @db.VarChar(255)
-  query         String   @db.Text
-  filters       Json     @default("{}")   // JSONB: { priceMin, priceMax, category, condition }
-  alertEnabled  Boolean  @default(false) @map("alert_enabled")
-  minimumScore  Int      @default(70) @map("minimum_score")  // Deal score threshold for alerts
-  lastRunAt     DateTime? @map("last_run_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id")  // API key for now, user UUID later
+  name                String    @db.VarChar(255)
+  query               String    @db.Text
+  filters             Json      @default("{}")   // JSONB: { priceMin, priceMax, category, condition }
+  alertEnabled        Boolean   @default(false) @map("alert_enabled")
+  minimumScore        Int       @default(70) @map("minimum_score")  // Deal score threshold for alerts
+  runFrequencyMinutes Int       @default(15) @map("run_frequency_minutes")  // How often to run (minutes)
+  nextRunAt           DateTime? @map("next_run_at")  // When worker should next execute this search
+  lastRunAt           DateTime? @map("last_run_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Indexes for performance
   @@index([userId])
   @@index([alertEnabled])
   @@index([userId, alertEnabled])
+  @@index([nextRunAt])
+  @@index([alertEnabled, nextRunAt])
   
   @@map("saved_searches")
 }
