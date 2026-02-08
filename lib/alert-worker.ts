@@ -4,29 +4,56 @@
  * Background job that executes saved searches with alerts enabled,
  * detects deals above threshold, and sends email notifications.
  * 
+ * SAFETY CONTROLS:
+ * - Global scan budget (max 20 per run)
+ * - Deterministic scheduling (next_run_at based)
+ * - Single execution per invocation (no loops)
+ * - Feature flag protection (FEATURE_EBAY_CALLS)
+ * 
  * IMPORTANT: This is the ONLY place where saved searches trigger eBay calls.
  * Saving a search does NOT call eBay - only this worker does.
  */
 
 import { 
-  getSearchesWithAlertsEnabled, 
-  updateLastRun,
-  type SavedSearchFilters 
+  getScheduledSearches,
+  countPendingSearches,
+  scheduleNextRun,
+  type SavedSearchFilters,
 } from './saved-searches';
 import { wasAlertSent, recordAlert } from './alert-history';
 import { sendDealAlertEmail, isEmailConfigured } from './email';
 import { isDatabaseConfigured } from './db';
+import { FEATURE_FLAGS } from './ebay-server';
 import type { SavedSearch } from '@prisma/client';
+
+// =============================================================================
+// CONSTANTS - SAFETY LIMITS
+// =============================================================================
+
+/**
+ * Maximum saved searches processed per worker invocation.
+ * Hard safety limit to prevent burst traffic to eBay.
+ * Searches beyond this limit are deferred to the next cycle.
+ */
+const SCAN_BUDGET_PER_RUN = 20;
+
+/**
+ * Minimum interval between worker runs (seconds).
+ * Prevents accidental rapid re-invocation.
+ */
+const MIN_WORKER_INTERVAL_SECONDS = 30;
+
+// Track last worker run time (in-memory, per-instance)
+let lastWorkerRunAt: number = 0;
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 interface WorkerConfig {
-  maxSearchesPerRun: number;    // Limit searches per worker invocation
-  maxDealsPerAlert: number;     // Max deals to include in one email
-  cooldownMinutes: number;      // Min time between runs for same search
+  scanBudget: number;           // Max searches per run (default: 20)
   dryRun: boolean;              // Skip actual eBay calls and emails
+  maxDealsPerAlert: number;     // Max deals to include in one email
 }
 
 interface Deal {
@@ -39,11 +66,35 @@ interface Deal {
   estimatedProfit?: number;
 }
 
+interface SearchExecutionResult {
+  searchId: string;
+  searchName: string;
+  executed: boolean;
+  dealsFound: number;
+  alertSent: boolean;
+  error?: string;
+  simulatedDueToFlag?: boolean;
+}
+
 interface WorkerResult {
-  searchesProcessed: number;
-  alertsSent: number;
-  errors: string[];
-  dryRun: boolean;
+  success: boolean;
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  config: {
+    scanBudget: number;
+    dryRun: boolean;
+    ebayCallsEnabled: boolean;
+  };
+  stats: {
+    totalPending: number;
+    processed: number;
+    deferred: number;
+    alertsSent: number;
+    errors: number;
+  };
+  executions: SearchExecutionResult[];
+  budgetExhausted: boolean;
 }
 
 // =============================================================================
@@ -51,35 +102,41 @@ interface WorkerResult {
 // =============================================================================
 
 const DEFAULT_CONFIG: WorkerConfig = {
-  maxSearchesPerRun: 10,
-  maxDealsPerAlert: 5,
-  cooldownMinutes: 60,    // Don't re-run same search within 1 hour
+  scanBudget: SCAN_BUDGET_PER_RUN,
   dryRun: false,
+  maxDealsPerAlert: 5,
 };
 
 // =============================================================================
-// WORKER IMPLEMENTATION
+// SEARCH EXECUTION
 // =============================================================================
 
 /**
- * Execute a single saved search and return matching deals
+ * Execute a single saved search and return matching deals.
  * 
- * NOTE: This function would call the eBay API.
- * Currently stubbed - implement when eBay rate limits clear.
+ * When FEATURE_EBAY_CALLS=false, returns empty array (simulated execution).
+ * This ensures scheduling continues to work without hitting eBay.
  */
 async function executeSearch(
   search: SavedSearch,
   config: WorkerConfig
-): Promise<Deal[]> {
-  if (config.dryRun) {
-    console.log(`[WORKER] DRY RUN: Would execute search "${search.name}"`);
-    return [];
+): Promise<{ deals: Deal[]; simulated: boolean }> {
+  const filters = search.filters as SavedSearchFilters;
+
+  // VENDOR PROTECTION: Check feature flag
+  if (!FEATURE_FLAGS.ENABLE_EBAY_CALLS) {
+    console.log(`[WORKER] SIMULATED execution for "${search.name}" (FEATURE_EBAY_CALLS=false)`);
+    console.log(`[WORKER]   Query: "${search.query}", MinScore: ${search.minimumScore}`);
+    console.log(`[WORKER]   Filters:`, filters);
+    return { deals: [], simulated: true };
   }
 
-  // Parse filters from JSONB
-  const filters = search.filters as SavedSearchFilters;
-  
-  // TODO: Implement actual eBay search when rate limits clear
+  if (config.dryRun) {
+    console.log(`[WORKER] DRY RUN: Would execute search "${search.name}"`);
+    return { deals: [], simulated: true };
+  }
+
+  // TODO: Implement actual eBay search when FEATURE_EBAY_CALLS=true
   // This is where we would call the search API:
   //
   // const results = await searchEbay({
@@ -90,39 +147,52 @@ async function executeSearch(
   //   condition: filters.condition,
   // });
   //
-  // return results
-  //   .filter(item => item.dealScore >= search.minimumScore)
-  //   .map(item => ({
-  //     itemId: item.itemId,
-  //     title: item.title,
-  //     price: item.price.current,
-  //     dealScore: item.dealScore,
-  //     imageUrl: item.imageUrl,
-  //     itemUrl: item.viewItemUrl,
-  //     estimatedProfit: item.estimatedProfit,
-  //   }));
+  // return {
+  //   deals: results
+  //     .filter(item => item.dealScore >= search.minimumScore)
+  //     .map(item => ({
+  //       itemId: item.itemId,
+  //       title: item.title,
+  //       price: item.price.current,
+  //       dealScore: item.dealScore,
+  //       imageUrl: item.imageUrl,
+  //       itemUrl: item.viewItemUrl,
+  //       estimatedProfit: item.estimatedProfit,
+  //     })),
+  //   simulated: false,
+  // };
 
-  console.log(`[WORKER] Search execution stubbed for "${search.name}" (eBay rate limited)`);
-  console.log(`[WORKER] Query: "${search.query}", MinScore: ${search.minimumScore}`);
-  console.log(`[WORKER] Filters:`, filters);
-  
-  return [];
+  console.log(`[WORKER] eBay search execution for "${search.name}" - NOT YET IMPLEMENTED`);
+  return { deals: [], simulated: false };
 }
 
 /**
- * Process a single saved search: execute, filter, dedupe, alert
+ * Process a single saved search: execute, filter, dedupe, alert, reschedule
  */
 async function processSearch(
   search: SavedSearch,
   config: WorkerConfig
-): Promise<{ alertSent: boolean; error?: string }> {
+): Promise<SearchExecutionResult> {
+  const result: SearchExecutionResult = {
+    searchId: search.id,
+    searchName: search.name,
+    executed: false,
+    dealsFound: 0,
+    alertSent: false,
+  };
+
   try {
     // Execute search
-    const deals = await executeSearch(search, config);
-    
+    const { deals, simulated } = await executeSearch(search, config);
+    result.executed = true;
+    result.simulatedDueToFlag = simulated;
+    result.dealsFound = deals.length;
+
+    // Schedule next run BEFORE processing deals (ensures rescheduling even on error)
+    await scheduleNextRun(search.id, search.runFrequencyMinutes);
+
     if (deals.length === 0) {
-      await updateLastRun(search.id);
-      return { alertSent: false };
+      return result;
     }
 
     // Filter out already-alerted items (deduplication)
@@ -136,25 +206,14 @@ async function processSearch(
 
     if (newDeals.length === 0) {
       console.log(`[WORKER] All ${deals.length} deals already alerted for "${search.name}"`);
-      await updateLastRun(search.id);
-      return { alertSent: false };
+      return result;
     }
 
     // Limit deals per alert
     const dealsToAlert = newDeals.slice(0, config.maxDealsPerAlert);
 
-    // Send email alert
-    // NOTE: For now, we need a way to get user email from userId (API key)
-    // This will be resolved when user accounts are implemented
-    // For now, we'll log and skip
-    
-    // TODO: Implement email sending when user emails are available
-    // const emailResult = await sendDealAlertEmail({
-    //   recipientEmail: userEmail,
-    //   searchName: search.name,
-    //   deals: dealsToAlert,
-    // });
-
+    // TODO: Send email alert when user emails are available
+    // For now, log and record the alert
     console.log(`[WORKER] Would send alert for "${search.name}": ${dealsToAlert.length} deals`);
 
     // Record alerts (for deduplication)
@@ -167,51 +226,92 @@ async function processSearch(
       });
     }
 
-    await updateLastRun(search.id);
-    return { alertSent: true };
+    result.alertSent = true;
+    return result;
 
   } catch (error) {
     console.error(`[WORKER] Error processing search "${search.name}":`, error);
-    return { 
-      alertSent: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    
+    // Still reschedule on error to prevent stuck searches
+    try {
+      await scheduleNextRun(search.id, search.runFrequencyMinutes);
+    } catch (scheduleError) {
+      console.error(`[WORKER] Failed to reschedule search ${search.id}:`, scheduleError);
+    }
+    
+    result.error = error instanceof Error ? error.message : 'Unknown error';
+    return result;
   }
 }
 
-/**
- * Check if search should be skipped (cooldown)
- */
-function shouldSkipSearch(search: SavedSearch, cooldownMinutes: number): boolean {
-  if (!search.lastRunAt) return false;
-  
-  const cooldownMs = cooldownMinutes * 60 * 1000;
-  const timeSinceLastRun = Date.now() - search.lastRunAt.getTime();
-  
-  return timeSinceLastRun < cooldownMs;
-}
+// =============================================================================
+// MAIN WORKER ENTRY POINT
+// =============================================================================
 
 /**
- * Main worker entry point
- * Called by cron job or manual trigger
+ * Main worker entry point.
+ * Called by cron job or manual trigger via API.
+ * 
+ * EXECUTES ONCE PER INVOCATION - does NOT loop.
+ * 
+ * Safety controls:
+ * - Scan budget (max 20 searches)
+ * - Feature flag (FEATURE_EBAY_CALLS)
+ * - Scheduling (next_run_at based selection)
+ * - Rate limiting (min interval between runs)
  */
 export async function runAlertWorker(
   overrides: Partial<WorkerConfig> = {}
 ): Promise<WorkerResult> {
+  const startedAt = new Date();
   const config = { ...DEFAULT_CONFIG, ...overrides };
+  
   const result: WorkerResult = {
-    searchesProcessed: 0,
-    alertsSent: 0,
-    errors: [],
-    dryRun: config.dryRun,
+    success: false,
+    startedAt: startedAt.toISOString(),
+    completedAt: '',
+    durationMs: 0,
+    config: {
+      scanBudget: config.scanBudget,
+      dryRun: config.dryRun,
+      ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
+    },
+    stats: {
+      totalPending: 0,
+      processed: 0,
+      deferred: 0,
+      alertsSent: 0,
+      errors: 0,
+    },
+    executions: [],
+    budgetExhausted: false,
   };
 
-  console.log('[WORKER] Starting alert worker run', { config });
+  console.log('[WORKER] ========================================');
+  console.log('[WORKER] Alert Worker Run Starting');
+  console.log('[WORKER] ========================================');
+  console.log('[WORKER] Config:', {
+    scanBudget: config.scanBudget,
+    dryRun: config.dryRun,
+    ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
+  });
+
+  // Rate limit check (prevent rapid re-invocation)
+  const now = Date.now();
+  const timeSinceLastRun = (now - lastWorkerRunAt) / 1000;
+  if (lastWorkerRunAt > 0 && timeSinceLastRun < MIN_WORKER_INTERVAL_SECONDS) {
+    console.warn(`[WORKER] Rate limited: only ${timeSinceLastRun.toFixed(1)}s since last run`);
+    result.completedAt = new Date().toISOString();
+    result.durationMs = Date.now() - startedAt.getTime();
+    return result;
+  }
+  lastWorkerRunAt = now;
 
   // Preflight checks
   if (!isDatabaseConfigured()) {
-    result.errors.push('Database not configured');
     console.error('[WORKER] Database not configured, aborting');
+    result.completedAt = new Date().toISOString();
+    result.durationMs = Date.now() - startedAt.getTime();
     return result;
   }
 
@@ -220,50 +320,97 @@ export async function runAlertWorker(
   }
 
   try {
-    // Get all searches with alerts enabled
-    const searches = await getSearchesWithAlertsEnabled();
-    console.log(`[WORKER] Found ${searches.length} searches with alerts enabled`);
+    // Get total pending count (for monitoring)
+    result.stats.totalPending = await countPendingSearches();
+    console.log(`[WORKER] Total pending searches: ${result.stats.totalPending}`);
 
-    // Filter by cooldown and limit
-    const eligibleSearches = searches
-      .filter(s => !shouldSkipSearch(s, config.cooldownMinutes))
-      .slice(0, config.maxSearchesPerRun);
+    // Get scheduled searches (with budget limit)
+    const searches = await getScheduledSearches(config.scanBudget);
+    console.log(`[WORKER] Retrieved ${searches.length} searches (budget: ${config.scanBudget})`);
 
-    console.log(`[WORKER] Processing ${eligibleSearches.length} eligible searches`);
-
-    // Process each search
-    for (const search of eligibleSearches) {
-      const { alertSent, error } = await processSearch(search, config);
-      
-      result.searchesProcessed++;
-      if (alertSent) result.alertsSent++;
-      if (error) result.errors.push(`${search.name}: ${error}`);
+    // Check if budget was exhausted
+    if (result.stats.totalPending > config.scanBudget) {
+      result.budgetExhausted = true;
+      result.stats.deferred = result.stats.totalPending - config.scanBudget;
+      console.log(`[WORKER] ⚠️  SCAN BUDGET REACHED: ${result.stats.deferred} searches deferred to next cycle`);
     }
+
+    // Process each search (NO LOOP beyond this - single pass)
+    for (const search of searches) {
+      console.log(`[WORKER] Processing: "${search.name}" (${search.id})`);
+      
+      const execResult = await processSearch(search, config);
+      result.executions.push(execResult);
+      result.stats.processed++;
+      
+      if (execResult.alertSent) {
+        result.stats.alertsSent++;
+      }
+      if (execResult.error) {
+        result.stats.errors++;
+      }
+    }
+
+    result.success = true;
 
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Worker failed';
-    result.errors.push(message);
     console.error('[WORKER] Fatal error:', error);
+    result.executions.push({
+      searchId: 'worker',
+      searchName: 'Worker Fatal Error',
+      executed: false,
+      dealsFound: 0,
+      alertSent: false,
+      error: message,
+    });
   }
 
-  console.log('[WORKER] Run complete', result);
+  result.completedAt = new Date().toISOString();
+  result.durationMs = Date.now() - startedAt.getTime();
+
+  console.log('[WORKER] ========================================');
+  console.log('[WORKER] Alert Worker Run Complete');
+  console.log('[WORKER] ========================================');
+  console.log('[WORKER] Results:', {
+    success: result.success,
+    durationMs: result.durationMs,
+    processed: result.stats.processed,
+    deferred: result.stats.deferred,
+    alertsSent: result.stats.alertsSent,
+    errors: result.stats.errors,
+    budgetExhausted: result.budgetExhausted,
+  });
+
   return result;
 }
 
+// =============================================================================
+// STATUS & MONITORING
+// =============================================================================
+
 /**
- * Get worker status (for monitoring)
+ * Get worker status (for monitoring endpoints)
  */
 export async function getWorkerStatus(): Promise<{
   databaseReady: boolean;
   emailReady: boolean;
+  ebayCallsEnabled: boolean;
   searchesWithAlerts: number;
+  pendingSearches: number;
+  scanBudget: number;
+  lastRunAt: string | null;
 }> {
   let searchesWithAlerts = 0;
+  let pendingSearches = 0;
   
   if (isDatabaseConfigured()) {
     try {
-      const searches = await getSearchesWithAlertsEnabled();
-      searchesWithAlerts = searches.length;
+      const { prisma } = await import('./db');
+      searchesWithAlerts = await prisma.savedSearch.count({
+        where: { alertEnabled: true },
+      });
+      pendingSearches = await countPendingSearches();
     } catch {
       // Ignore
     }
@@ -272,6 +419,10 @@ export async function getWorkerStatus(): Promise<{
   return {
     databaseReady: isDatabaseConfigured(),
     emailReady: isEmailConfigured(),
+    ebayCallsEnabled: FEATURE_FLAGS.ENABLE_EBAY_CALLS,
     searchesWithAlerts,
+    pendingSearches,
+    scanBudget: SCAN_BUDGET_PER_RUN,
+    lastRunAt: lastWorkerRunAt > 0 ? new Date(lastWorkerRunAt).toISOString() : null,
   };
 }
